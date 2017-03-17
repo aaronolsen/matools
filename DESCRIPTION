@@ -1,0 +1,12 @@
+Package: matools
+Date: 2017-03-17
+Title: Motion analysis tools
+Description: Functions for motion analysis.
+Version: 1.0
+Depends: R (>= 2.11.0)
+Imports: grDevices, graphics, stats, utils
+Author: Aaron Olsen
+Maintainer: Aaron Olsen <aarolsen@gmail.com>
+Repository: CRAN
+URL: https://aaronolsen.github.io/software/matools.html
+License: GPL (>= 2)
