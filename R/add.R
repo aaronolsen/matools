@@ -71,15 +71,23 @@ add <- function(add, to, add.dim = 1){
 			to$tmat <- new_tmat
 		}
 
-
 	}else if('motion' %in% class(add)){
 
-		if(!'motion' %in% class(to)) stop("Motion structure must be added to motion structure")
-
+		if(!'motion' %in% class(to)){
+			
+			# Create new motion structure from add
+			if(!is.null(add$xyz)) class(add$xyz) <- 'xyz'
+			if(!is.null(add$tmat)) class(add$tmat) <- 'tmat'
+			
+			return(add)
+		}
+		
 		for(xn in names(add)){
-			if('xyz' %in% class(add[[xn]])){
+			if('xyz' %in% class(add[[xn]]) || xn == 'xyz'){
+				class(add[[xn]]) <- 'xyz'
 				to <- add(add[[xn]], to, add.dim=3)
-			}else if('tmat' %in% class(add[[xn]])){
+			}else if('tmat' %in% class(add[[xn]]) || xn == 'tmat'){
+				class(add[[xn]]) <- 'tmat'
 				to <- add(add[[xn]], to, add.dim=4)
 			}else{
 				to[[xn]] <- c(to[[xn]], add[[xn]])
