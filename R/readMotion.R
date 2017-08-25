@@ -116,7 +116,7 @@ readMotion <- function(file, nrows = -1){
 			info_col_vals <- read_matrix[, info_col]
 			
 			#
-			info_col_vals[info_col_vals == 'NA'] <- NA
+			info_col_vals[grepl('[ ]?NA[ ]?', info_col_vals)] <- NA
 			
 			# Find first non-NA value
 			first_nna <- which(!is.na(info_col_vals))[1]
@@ -150,8 +150,6 @@ readMotion <- function(file, nrows = -1){
 	}
 	
 	return(rlist)
-
-return(1)
 
 	# Get number of frames from first file
 	if(file_format == 'txt'){
