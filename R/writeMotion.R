@@ -5,7 +5,7 @@ writeMotion <- function(x, file){
 
 	for(xn in names(x)){
 	
-		if('tmat' %in% class(x[[xn]])){
+		if('tmat' %in% class(x[[xn]]) || xn == 'tmat'){
 			
 			# Convert array of transformation matrices to matrix
 			tmat <- tmarr2mat(x[[xn]])
@@ -13,7 +13,7 @@ writeMotion <- function(x, file){
 			# Add columns
 			write_mat <- cbind(write_mat, tmat)
 
-		}else if('xyz' %in% class(x[[xn]])){
+		}else if('xyz' %in% class(x[[xn]]) || xn == 'xyz'){
 
 			# Convert array of points to matrix
 			xyz <- arr2mat(x[[xn]])
@@ -28,7 +28,7 @@ writeMotion <- function(x, file){
 		}
 	}
 	
-	if(grepl('[.]csv$', file)) write.csv(x=write_mat, file=file)
+	if(grepl('[.]csv$', file)) write.csv(x=write_mat, file=file, row.names=FALSE)
 	
 	NULL
 }
