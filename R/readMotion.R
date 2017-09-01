@@ -40,7 +40,7 @@ readMotion <- function(file, nrows = -1){
 	tmat_cols <- grepl('_(R[1-3]{2}|[0-3]{2}|1|TX|TY|TZ)$', colnames(read_matrix), ignore.case=TRUE)
 
 	# Check if there are xyz coordinates
-	xyz_cols <- grepl('_(|X|Y|Z)$', colnames(read_matrix), ignore.case=TRUE)
+	xyz_cols <- grepl('[_|.](|X|Y|Z)$', colnames(read_matrix), ignore.case=TRUE)
 
 	# Check for additional info columns
 	info_cols <- tmat_cols+xyz_cols == 0
@@ -81,6 +81,9 @@ readMotion <- function(file, nrows = -1){
 		# Convert to array
 		tmat <- array(t(tmat_mat), dim=c(4,4,n_bodies,n_iter), dimnames=list(NULL, NULL, body_names, NULL))
 
+		# Convert NaNs to NA
+		tmat[is.na(tmat)] <- NA
+
 	}else{
 		tmat <- NULL
 	}
@@ -92,7 +95,13 @@ readMotion <- function(file, nrows = -1){
 		xyz_mat <- matrix(as.numeric(read_matrix[, xyz_cols]), nrow=nrow(read_matrix), ncol=sum(xyz_cols), dimnames=list(NULL, colnames(read_matrix)[xyz_cols]))
 
 		# Convert XYZ matrix to array
-		xyz <- mat2arr(xyz_mat, pattern='(_x|_y|_z)$')
+		xyz <- mat2arr(xyz_mat)
+		
+		# Get number of iterations
+		n_iter <- dim(xyz)[3]
+	
+		# Convert NaNs to NA
+		xyz[is.na(xyz)] <- NA
 
 	}else{
 		xyz <- NULL
@@ -144,10 +153,16 @@ readMotion <- function(file, nrows = -1){
 				}
 				
 			}
-			
+
+			# Get number of iterations
+			n_iter <- length(info_col_vals)
+
 			rlist[[colnames(read_matrix)[info_col]]] <- info_col_vals
 		}
 	}
+	
+	# Set number of iterations
+	rlist$n.iter <- n_iter
 	
 	return(rlist)
 
