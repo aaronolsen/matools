@@ -1,4 +1,4 @@
-add <- function(add, to, add.dim = 1){
+addMotion <- function(add, to, add.dim = 1){
 
 	# Check if null
 	if(is.null(add)) return(to)
@@ -83,12 +83,15 @@ add <- function(add, to, add.dim = 1){
 		}
 		
 		for(xn in names(add)){
+		
+			if(xn %in% c('replace.rows', 'n.iter')) next
+		
 			if('xyz' %in% class(add[[xn]]) || xn == 'xyz'){
 				class(add[[xn]]) <- 'xyz'
-				to <- add(add[[xn]], to, add.dim=3)
+				to <- addMotion(add[[xn]], to, add.dim=3)
 			}else if('tmat' %in% class(add[[xn]]) || xn == 'tmat'){
 				class(add[[xn]]) <- 'tmat'
-				to <- add(add[[xn]], to, add.dim=4)
+				to <- addMotion(add[[xn]], to, add.dim=4)
 			}else{
 				to[[xn]] <- c(to[[xn]], add[[xn]])
 			}
