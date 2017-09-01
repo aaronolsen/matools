@@ -5,6 +5,9 @@ writeMotion <- function(x, file){
 
 	for(xn in names(x)){
 	
+		# Internal field used with filterRows
+		if(xn %in% c('replace.rows', 'n.iter')) next
+	
 		if('tmat' %in% class(x[[xn]]) || xn == 'tmat'){
 			
 			# Convert array of transformation matrices to matrix
