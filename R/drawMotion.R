@@ -1,6 +1,6 @@
 drawMotion <- function(file, pts, pts.path = NULL, pts.cex = 1, pts.col.stroke = 'black', 
 	pts.col.fill = 'black', path.col = 'black', path.lwd = 1, pts2 = NULL, pts2.cex = 1, 
-	pts2.col.stroke = 'red', pts2.col.fill = 'red', frame = TRUE, duration = 1, 
+	pts2.col.stroke = 'red', pts2.col.fill = 'red', frame = TRUE, duration = 1, draw.labels = FALSE, 
 	window.title = 'Draw Motion'){
 
 	svg.new(file, animate.duration=duration, window.title=window.title)
@@ -31,8 +31,11 @@ drawMotion <- function(file, pts, pts.path = NULL, pts.cex = 1, pts.col.stroke =
 		}
 	}
 
+	# Draw labels
+	if(draw.labels) if(!is.null(dimnames(pts)[[1]])) svg.text(pts, labels=dimnames(pts)[[1]], font.size=1, col='blue')
+
 	# Draw second set of points
-	svg.points(pts2, col.stroke=pts2.col.stroke, col.fill=pts2.col.fill, cex=pts2.cex)
+	if(!is.null(pts2)) svg.points(pts2, col.stroke=pts2.col.stroke, col.fill=pts2.col.fill, cex=pts2.cex)
 
 	# Draw frame
 	if(frame) svg.frame(ranges, z.index=-1)
