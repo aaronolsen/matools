@@ -3,31 +3,37 @@ writeMotion <- function(x, file){
 	# Create write mat
 	write_mat <- NULL
 
-	for(xn in names(x)){
+	if(is.null(names(x))){
+
+		write_mat <- x
+	}else{
+
+		for(xn in names(x)){
 	
-		# Internal field used with filterRows
-		if(xn %in% c('replace.rows', 'n.iter')) next
+			# Internal field used with filterRows
+			if(xn %in% c('replace.rows', 'n.iter')) next
 	
-		if('tmat' %in% class(x[[xn]]) || xn == 'tmat'){
+			if('tmat' %in% class(x[[xn]]) || xn == 'tmat'){
 			
-			# Convert array of transformation matrices to matrix
-			tmat <- tmarr2mat(x[[xn]])
+				# Convert array of transformation matrices to matrix
+				tmat <- tmarr2mat(x[[xn]])
 			
-			# Add columns
-			write_mat <- cbind(write_mat, tmat)
+				# Add columns
+				write_mat <- cbind(write_mat, tmat)
 
-		}else if('xyz' %in% class(x[[xn]]) || xn == 'xyz'){
+			}else if('xyz' %in% class(x[[xn]]) || xn == 'xyz'){
 
-			# Convert array of points to matrix
-			xyz <- arr2mat(x[[xn]])
+				# Convert array of points to matrix
+				xyz <- arr2mat(x[[xn]])
 			
-			# Add columns
-			write_mat <- cbind(write_mat, xyz)
+				# Add columns
+				write_mat <- cbind(write_mat, xyz)
 
-		}else{
+			}else{
 
-			# Add columns
-			write_mat <- cbind(write_mat, matrix(x[[xn]], ncol=1, dimnames=list(NULL, xn)))
+				# Add columns
+				write_mat <- cbind(write_mat, matrix(x[[xn]], ncol=1, dimnames=list(NULL, xn)))
+			}
 		}
 	}
 	
