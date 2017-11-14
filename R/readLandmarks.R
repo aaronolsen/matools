@@ -7,7 +7,7 @@ readLandmarks <- function(file, period.to.space = TRUE, row.names = 1){
 	if(nchar(colnames(mat))[1] > 2){
 		
 		# Get names
-		sp_names <- gsub('[.](x|y|z)', '', colnames(mat))
+		sp_names <- gsub('[_|.](|X|Y|Z)$', '', colnames(mat), ignore.case=TRUE)
 		
 		# Replace period with space
 		if(period.to.space) sp_names <- gsub('[.]', ' ', sp_names)
