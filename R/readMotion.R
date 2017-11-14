@@ -31,7 +31,11 @@ readMotion <- function(file, nrows = -1){
 	}
 
 	# If first column is X, remove
-	if(colnames(read_matrix)[1] == 'X') read_matrix <- read_matrix[, 2:ncol(read_matrix)]
+	row_names <- NULL
+	if(colnames(read_matrix)[1] == 'X'){
+		row_names <- read_matrix[, 1]
+		read_matrix <- read_matrix[, 2:ncol(read_matrix)]
+	}
 
 	# Sort column names
 	read_matrix <- read_matrix[, sort(colnames(read_matrix))]
@@ -90,9 +94,9 @@ readMotion <- function(file, nrows = -1){
 
 	# Fill coordinate array
 	if(has_xyz){
-	
+
 		# Get columns
-		xyz_mat <- matrix(as.numeric(read_matrix[, xyz_cols]), nrow=nrow(read_matrix), ncol=sum(xyz_cols), dimnames=list(NULL, colnames(read_matrix)[xyz_cols]))
+		xyz_mat <- matrix(as.numeric(read_matrix[, xyz_cols]), nrow=nrow(read_matrix), ncol=sum(xyz_cols), dimnames=list(row_names, colnames(read_matrix)[xyz_cols]))
 
 		# Convert XYZ matrix to array
 		xyz <- mat2arr(xyz_mat)
@@ -142,6 +146,9 @@ readMotion <- function(file, nrows = -1){
 				# Set correct class
 				if(val_type == 'numeric') info_col_vals <- as(info_col_vals, val_type)
 
+				# Check for logical
+				if(val_type == 'character' && grepl('^FALSE$|^[ ]?TRUE$', info_col_vals)) val_type <- 'logical'
+
 				# Format character class
 				if(val_type == 'character'){
 
@@ -151,7 +158,16 @@ readMotion <- function(file, nrows = -1){
 					# Remove leading and following spaces if ' , ' separator
 					if(sep == ' , ') info_col_vals <- gsub('(^[ ])|([ ]$)', '', info_col_vals)
 				}
-				
+
+				# Format logical class
+				if(val_type == 'logical'){
+
+					# Remove spaces
+					info_col_vals <- gsub('[ ]', '', info_col_vals)
+
+					# Set class
+					info_col_vals <- as(info_col_vals, val_type)
+				}
 			}
 
 			# Get number of iterations
