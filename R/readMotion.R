@@ -1,4 +1,4 @@
-readMotion <- function(file, nrows = -1){
+readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), vectors.name = 'vectors'){
 
 	## Reads in matrix of coordinates over time, with or without time column, or 
 	## transformation matrices. File type is detected based on whether first column name 
@@ -123,7 +123,14 @@ readMotion <- function(file, nrows = -1){
 
 	# Add extra info columns
 	if(has_info){
-		for(info_col in which(info_cols)){
+	
+		val_types <- rep(NA, sum(info_cols))
+		info_cols_idx <- which(info_cols)
+
+		for(i in 1:sum(info_cols)){
+		
+			#
+			info_col <- info_cols_idx[i]
 		
 			# Get values
 			info_col_vals <- read_matrix[, info_col]
@@ -138,19 +145,19 @@ readMotion <- function(file, nrows = -1){
 			if(length(first_nna) > 0){
 
 				if(is.na(suppressWarnings(as.numeric(info_col_vals[first_nna])))){
-					val_type <- 'character'
+					val_types[i] <- 'character'
 				}else{
-					val_type <- 'numeric'
+					val_types[i] <- 'numeric'
 				}
 				
 				# Set correct class
-				if(val_type == 'numeric') info_col_vals <- as(info_col_vals, val_type)
+				if(val_types[i] == 'numeric') info_col_vals <- as(info_col_vals, val_types[i])
 
 				# Check for logical
-				if(val_type == 'character' && grepl('^FALSE$|^[ ]?TRUE$', info_col_vals)) val_type <- 'logical'
+				if(val_types[i] == 'character' && grepl('^FALSE$|^[ ]?TRUE$', info_col_vals)) val_types[i] <- 'logical'
 
 				# Format character class
-				if(val_type == 'character'){
+				if(val_types[i] == 'character'){
 
 					# Remove default numeric names
 					info_col_vals <- setNames(info_col_vals, NULL)
@@ -160,13 +167,13 @@ readMotion <- function(file, nrows = -1){
 				}
 
 				# Format logical class
-				if(val_type == 'logical'){
+				if(val_types[i] == 'logical'){
 
 					# Remove spaces
 					info_col_vals <- gsub('[ ]', '', info_col_vals)
 
 					# Set class
-					info_col_vals <- as(info_col_vals, val_type)
+					info_col_vals <- as(info_col_vals, val_types[i])
 				}
 			}
 
@@ -175,142 +182,26 @@ readMotion <- function(file, nrows = -1){
 
 			rlist[[colnames(read_matrix)[info_col]]] <- info_col_vals
 		}
+		
+		if(vectors.as[1] == 'data.frame'){
+
+			rlist_to_df <- do.call(cbind.data.frame, rlist[info_cols])
+			rlist[info_cols] <- NULL
+			rlist[[vectors.name]] <- rlist_to_df
+
+			for(i in 1:ncol(rlist[[vectors.name]])){
+			
+				# Get column name
+				col_name <- colnames(rlist[[vectors.name]])[i]
+	
+				# If character, convert from factor to character
+				if(val_types[i] == 'character') rlist[[vectors.name]][[col_name]] <- as.character(rlist[[vectors.name]][[col_name]])
+			}
+		}
 	}
 	
 	# Set number of iterations
 	rlist$n.iter <- n_iter
 	
 	return(rlist)
-
-	# Get number of frames from first file
-	if(file_format == 'txt'){
-
-	}else{
-
-		# Read csv
-
-		# If transformations
-		if(grepl('_R11$', colnames(read_matrix)[1])){
-
-			# Check for non-transformation columns
-			tm_grepl <- grepl('_(R[1-3]{2}|[0-3]{2}|1|TX|TY|TZ)', colnames(read_matrix), ignore.case=TRUE)
-		
-			# Get tm matrix
-			tm_matrix <- read_matrix[, tm_grepl]
-
-			# Transformation matrix
-			tmat <- matrix(suppressWarnings(as.numeric(tm_matrix)), nrow(tm_matrix), ncol(tm_matrix), 
-				dimnames=dimnames(tm_matrix))
-			
-			# Convert transformation matrix into array
-			tm_arr <- tmmat2arr(tmat)
-
-			# Set return list
-			rlist <- list('tm.arr'=tm_arr)
-			
-			# Get non-transformation column names
-			if(sum(!tm_grepl) > 0){
-
-				# Add column as list element
-				for(non_tm_colname in colnames(read_matrix)[!tm_grepl]) rlist[[non_tm_colname]] <- gsub('^[ ]*|[ ]*$', '', read_matrix[, non_tm_colname])
-
-				return(rlist)
-			}else{
-
-				return(rlist$tm.arr)
-			}
-
-		}else if(colnames(read_matrix)[1] == 'X'){
-
-			read_matrix <- read_matrix[, 2:ncol(read_matrix)]
-			
-			if('time' %in% colnames(read_matrix)){
-				tmta <- time_mat_to_arr(read_matrix)
-			}else{
-				return(mat2arr(read_matrix))
-			}
-
-		}else if(colnames(read_matrix)[1] == 'Frame'){
-
-			# Remove columns with all NA values
-			read_matrix <- read_matrix[, colSums(!is.na(read_matrix)) > 0]
-
-			# Remove first column if frame number
-			if(colnames(read_matrix)[1] == 'Frame') read_matrix <- read_matrix[, 2:ncol(read_matrix)]
-
-			# Convert XYZ matrix to array
-			arr <- mat2arr(read_matrix, pattern='(_x|_y|_z)$')
-
-			# Remove filter frequency from rownames, if present
-			dimnames(arr)[[1]] <- gsub('_[0-9]+Hz', '', dimnames(arr)[[1]])
-	
-			# Sort markers alphabetically by name
-			arr <- arr[sort(dimnames(arr)[[1]]), , ]
-
-			return(arr)
-		}
-	}
-	
-	lm_array_ex <- tmta$arr
-
-	# Set number of iterations
-	num_iter <- dim(lm_array_ex)[3]
-	
-	# Set landmark names
-	if(is.null(landmark.names)) landmark.names <- dimnames(lm_array_ex)[[1]]
-
-	# Create array for coordinates from all strikes
-	if(multiple.as == 'list' && length(file) > 1){
-		marker_array <- list()
-		for(ii in 1:length(file)){
-			marker_array[[ii]] <- array(NA, dim=c(dim(lm_array_ex)[1:2], num_iter), dimnames=list(landmark.names, letters[24:26], NULL))
-		}
-	}else if(multiple.as == 'array' && length(file) > 1){
-
-		# Get file names from paths
-		file_names <- rep(NA, length(file))
-		for(i in 1:length(file)){
-			str_split <- strsplit(file[i], split='/')[[1]]
-			file_names[i] <- gsub('[.](txt|csv)$', '', str_split[length(str_split)], ignore.case=TRUE)
-		}
-
-		# Create array
-		marker_array <- array(NA, dim=c(dim(lm_array_ex)[1:2], num_iter, length(file)), dimnames=list(landmark.names, letters[24:26], NULL, file_names))
-
-	}else{
-		marker_array <- array(NA, dim=c(dim(lm_array_ex)[1:2], num_iter*length(file)), dimnames=list(landmark.names, letters[24:26], NULL))
-	}
-
-	# Read coordinates into list/array
-	for(i in 1:length(file)){
-
-		# Read coordinates
-		if(file_format == 'txt'){
-			tmta <- time_mat_to_arr(as.matrix(read.table(file[i])))
-		}else{
-			read_matrix <- as.matrix(read.csv(file[i]))
-			if(colnames(read_matrix)[1] == 'X') read_matrix <- read_matrix[, 2:ncol(read_matrix)]
-			tmta <- time_mat_to_arr(read_matrix)
-		}
-
-		lm_array <- tmta$arr
-
-		# Add to array/list
-		if(multiple.as == 'list' && length(file) > 1){
-			marker_array[[i]][landmark.names, , ] <- lm_array[landmark.names, , ]
-		}else if(multiple.as == 'array' && length(file) > 1){
-			marker_array[landmark.names, , , i] <- lm_array[landmark.names, , ]
-		}else{
-			# Set frame indices
-			frames_idx <- ((i-1)*num_iter+1):(i*num_iter)
-
-			# Add to array
-			marker_array[landmark.names, , frames_idx] <- lm_array[landmark.names, , ]
-		}
-	}
-	
-	list(
-		'xyz'=marker_array, 
-		'time'=tmta$times
-	)
 }
