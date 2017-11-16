@@ -1,4 +1,4 @@
-procrustes <- function(x, scale=TRUE, scale.to.mean.Csize=FALSE){
+procrustes <- function(x, scale=TRUE, rotate=TRUE, scale.to.mean.Csize=FALSE){
 
 	k <- dim(x)[1]
 	m <- dim(x)[2]
@@ -24,37 +24,40 @@ procrustes <- function(x, scale=TRUE, scale.to.mean.Csize=FALSE){
 		}
 	}
 	
-	# ROTATE, ALIGN ALL CONFIGURATIONS TO FIRST CONFIGURATION
-	for(i in 2:n){
-		common <- is.na(x[,1, 1])+is.na(x[,1, i]) == 0
-		SVD <- svd(t(x[common,, 1]) %*% x[common,, i])
-		L <- diag(SVD$d)
-		S <- ifelse(L<0, -1, L)
-		S <- ifelse(L>0, 1, L)
-		R <- SVD$v %*% S %*% t(SVD$u) # the rotation matrix
-		x[,, i] <- x[,, i] %*% R
-		SSE <- sum((x[,, i] - x[,, 1])^2, na.rm=TRUE)
-		#print(SSE) # Sum of squared differences between target and reference configuration
-	}
-	mean_config <- t(apply(x, 1, function(x) apply(x, 1, mean)))
-	means_SSE <- sum((mean_config - x[,, 1])^2, na.rm=TRUE)
+	if(rotate){
 
-	# ALIGN ALL CONFIGURATIONS TO MEAN CONFIGURATION, RE-ALIGN UNTIL SSE BETWEEN CONSECUTIVE MEAN CONFIGURATIONS < 1e-7
-	j <- 0
-	while(means_SSE > 1e-7 && j < 5) { # runs a max of 5 iterations or until SSE between means is < 1e-7
-		mean_config1 <- t(apply(x, 1, function(x) apply(x, 1, mean)))
-		for(i in 1:n){
-			common <- is.na(mean_config1[, 1])+is.na(x[,1, i]) == 0
-			SVD <- svd(t(mean_config1[common, ]) %*% x[common,, i])
+		# ROTATE, ALIGN ALL CONFIGURATIONS TO FIRST CONFIGURATION
+		for(i in 2:n){
+			common <- is.na(x[,1, 1])+is.na(x[,1, i]) == 0
+			SVD <- svd(t(x[common,, 1]) %*% x[common,, i])
 			L <- diag(SVD$d)
 			S <- ifelse(L<0, -1, L)
 			S <- ifelse(L>0, 1, L)
 			R <- SVD$v %*% S %*% t(SVD$u) # the rotation matrix
 			x[,, i] <- x[,, i] %*% R
+			SSE <- sum((x[,, i] - x[,, 1])^2, na.rm=TRUE)
+			#print(SSE) # Sum of squared differences between target and reference configuration
 		}
-		mean_config2 <- t(apply(x, 1, function(x) apply(x, 1, mean)))
-		means_SSE <- sum((mean_config2 - mean_config1)^2, na.rm=TRUE)
-		j <- j + 1
+		mean_config <- t(apply(x, 1, function(x) apply(x, 1, mean)))
+		means_SSE <- sum((mean_config - x[,, 1])^2, na.rm=TRUE)
+
+		# ALIGN ALL CONFIGURATIONS TO MEAN CONFIGURATION, RE-ALIGN UNTIL SSE BETWEEN CONSECUTIVE MEAN CONFIGURATIONS < 1e-7
+		j <- 0
+		while(means_SSE > 1e-7 && j < 5) { # runs a max of 5 iterations or until SSE between means is < 1e-7
+			mean_config1 <- t(apply(x, 1, function(x) apply(x, 1, mean)))
+			for(i in 1:n){
+				common <- is.na(mean_config1[, 1])+is.na(x[,1, i]) == 0
+				SVD <- svd(t(mean_config1[common, ]) %*% x[common,, i])
+				L <- diag(SVD$d)
+				S <- ifelse(L<0, -1, L)
+				S <- ifelse(L>0, 1, L)
+				R <- SVD$v %*% S %*% t(SVD$u) # the rotation matrix
+				x[,, i] <- x[,, i] %*% R
+			}
+			mean_config2 <- t(apply(x, 1, function(x) apply(x, 1, mean)))
+			means_SSE <- sum((mean_config2 - mean_config1)^2, na.rm=TRUE)
+			j <- j + 1
+		}
 	}
 	
 	if(scale.to.mean.Csize){
