@@ -1,8 +1,12 @@
-readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), vectors.name = 'vectors'){
+readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), vectors.name = 'vectors',
+	xyz.pattern = '[_|.](|X|Y|Z)$', tm.pattern = '_(R[0-3]{2}|[0-3]{2}|TX|TY|TZ|1)$'){
 
 	## Reads in matrix of coordinates over time, with or without time column, or 
 	## transformation matrices. File type is detected based on whether first column name 
 	## ends in R11
+
+	# Set disallowed input names
+	disallowed_names <- c('replace.rows', 'remove.rows', 'n.iter')
 
 	# Read first two lines
 	read_lines <- readLines(file, n=2)
@@ -41,10 +45,10 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 	read_matrix <- read_matrix[, sort(colnames(read_matrix))]
 
 	# Check if there are transformations
-	tmat_cols <- grepl('_(R[1-3]{2}|[0-3]{2}|1|TX|TY|TZ)$', colnames(read_matrix), ignore.case=TRUE)
+	tmat_cols <- grepl(tm.pattern, colnames(read_matrix), ignore.case=TRUE)
 
 	# Check if there are xyz coordinates
-	xyz_cols <- grepl('[_|.](|X|Y|Z)$', colnames(read_matrix), ignore.case=TRUE)
+	xyz_cols <- grepl(xyz.pattern, colnames(read_matrix), ignore.case=TRUE)
 
 	# Check for additional info columns
 	info_cols <- tmat_cols+xyz_cols == 0
@@ -71,7 +75,7 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 		n_bodies <- ncol(tmat_mat) / 16
 	
 		# Get body names
-		body_names <- unique(gsub('_(R[0-3]{2}|[0-3]{2}|TX|TY|TZ|1)$', '', colnames(tmat_mat), ignore.case=TRUE))
+		body_names <- unique(gsub(tm.pattern, '', colnames(tmat_mat), ignore.case=TRUE))
 		
 		# Capitalize to set correct order
 		colnames(tmat_mat) <- toupper(colnames(tmat_mat))
@@ -99,7 +103,7 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 		xyz_mat <- matrix(as.numeric(read_matrix[, xyz_cols]), nrow=nrow(read_matrix), ncol=sum(xyz_cols), dimnames=list(row_names, colnames(read_matrix)[xyz_cols]))
 
 		# Convert XYZ matrix to array
-		xyz <- mat2arr(xyz_mat)
+		xyz <- mat2arr(xyz_mat, pattern=xyz.pattern, ignore.case=TRUE)
 		
 		# Get number of iterations
 		n_iter <- dim(xyz)[3]
@@ -131,6 +135,9 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 		
 			#
 			info_col <- info_cols_idx[i]
+
+			#
+			if(colnames(read_matrix)[info_col] %in% disallowed_names) stop(paste0("Columns in the motion file cannot have any of the following names since they are used for internal operations: ", paste0(disallowed_names, collapse=', ')))
 		
 			# Get values
 			info_col_vals <- read_matrix[, info_col]
@@ -204,4 +211,40 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 	rlist$n.iter <- n_iter
 	
 	return(rlist)
+}
+
+print.motion <- function(x){
+	
+	rc <- ''
+	
+	# Get names of objects
+	x_names <- names(x)
+
+	# Print transformation matrix details	
+	if('n.iter' %in% x_names){
+		rc <- c(rc, paste0('Number of iterations: ', x$n.iter, '\n'))
+	}
+	if('tmat' %in% x_names){
+		rc <- c(rc, paste0('$tmat (', paste0(dim(x$tmat), collapse='x'), ')', '\n'))
+		#if(length(dim(x$tmat)) > 2 && !is.null(dimnames(x$tmat)[[3]])) rc <- c(rc, paste0('\tBodies: ', paste0(dimnames(x$tmat)[[3]], collapse=', '), '\n'))
+		if(length(dim(x$tmat)) > 2 && !is.null(dimnames(x$tmat)[[3]])) rc <- c(rc, paste0('\t', paste0(dimnames(x$tmat)[[3]], collapse='\n\t'), '\n'))
+	}
+
+	# Print transformation matrix details	
+	if('xyz' %in% x_names){
+		rc <- c(rc, paste0('$xyz (', paste0(dim(x$xyz), collapse='x'), ')', '\n'))
+		#if(!is.null(dimnames(x$xyz)[[1]])) rc <- c(rc, paste0('\tCoordinate names: ', paste0(dimnames(x$xyz)[[1]], collapse=', '), '\n'))
+		if(!is.null(dimnames(x$xyz)[[1]])) rc <- c(rc, paste0('\t', paste0(dimnames(x$xyz)[[1]], collapse='\n\t'), '\n'))
+	}
+
+	info_names <- x_names[!x_names %in% c('xyz', 'tmat', 'n.iter', 'replace.rows', 'remove.rows')]
+
+	if(length(info_names) > 0){
+		xlist_to_df <- do.call(cbind.data.frame, x[info_names])
+		colnames(xlist_to_df) <- paste0('$', colnames(xlist_to_df))
+		#rc <- c(rc, 'Other objects\n')
+		rc <- c(rc, paste0(paste0(capture.output(print(head(xlist_to_df))), collapse='\n'), '\n'))
+	}
+
+	cat(rc, sep='')
 }
