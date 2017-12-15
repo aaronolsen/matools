@@ -1,12 +1,23 @@
-unifyMotion <- function(ct_mat, xr_arr, add.xr = FALSE, print.progress = TRUE, print.progress.iter = c(1)){
+unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.iter = c(1), 
+	replace.xyz = FALSE, plot.diag = NULL, skip.bodies = c()){
+
+	add.xr <- TRUE
+
+	# Set point array
+	xr_arr <- motion$xyz
+	
+	# Set matrix coordinates
+	ct_mat <- xyz.mat
 
 	# Remove CT coordinates that are NA
 	ct_mat <- ct_mat[!is.na(ct_mat[, 1]), ]
 
 	# Get body names
 	body_names <- rownames(ct_mat)
-
 	body_names <- gsub('_[A-Za-z0-9-]*', '', body_names)
+
+	# Remove any skip body names
+	if(length(skip.bodies) > 0) body_names <- body_names[!body_names %in% skip.bodies]
 
 	#body_names <- gsub('[0-9]', '', body_names)
 	#for(i in 1:2) body_names <- gsub(paste0('_(ant|sup|mid|inf|pos)[_]?'), '_', body_names)
@@ -244,17 +255,66 @@ unifyMotion <- function(ct_mat, xr_arr, add.xr = FALSE, print.progress = TRUE, p
 	
 	# Add X-ray points to animated CT points	
 	if(add.xr){
-		ct_arr_new <- array(NA, dim=c(dim(ct_arr)[1] + dim(xr_arr_n)[1], dim(ct_arr)[2], dim(ct_arr)[3]),
-			dimnames=list(c(dimnames(ct_arr)[[1]],dimnames(xr_arr_n)[[1]]), NULL, NULL))
-		ct_arr_new[dimnames(ct_arr)[[1]], , ] <- ct_arr
-		ct_arr_new[dimnames(xr_arr_n)[[1]], , ] <- xr_arr_n
+	
+		# Get all marker names
+		unique_names <- unique(c(dimnames(ct_arr)[[1]],dimnames(xr_arr_n)[[1]]))
+		
+		#
+		ct_arr_new <- array(NA, dim=c(length(unique_names), dim(ct_arr)[2], dim(ct_arr)[3]),
+			dimnames=list(unique_names, NULL, NULL))
+
+		# 
+		if(replace.xyz){
+			ct_arr_new[dimnames(xr_arr_n)[[1]], , ] <- xr_arr_n
+			ct_arr_new[dimnames(ct_arr)[[1]], , ] <- ct_arr
+		}else{
+
+			xr_arr_n_non_na <- dimnames(xr_arr_n)[[1]][rowSums(is.na(xr_arr_n[, 1, ])) == 0]
+
+			ct_arr_new[dimnames(ct_arr)[[1]], , ] <- ct_arr
+			ct_arr_new[xr_arr_n_non_na, , ] <- xr_arr_n[xr_arr_n_non_na, , ]
+		}
 		ct_arr <- ct_arr_new
 	}
+	
+	#
+	if(!is.null(plot.diag)){
 
-	list(
-		'xyz.ct'=ct_arr,
-		'xyz.xr'=xr_arr_n,
-		'tmat'=tm_arr,
+		# If plot filename doesn't end in pdf, add
+		if(!grepl('[.]pdf$', plot.diag, ignore.case=TRUE)) plot.diag <- paste0(plot.diag, '.pdf')
+
+		## Create error diagnostic plot
+		pdf(plot.diag, height=ncol(errors)*2.5, width=max(nrow(errors)/90, 7))
+		layout(cbind(1:ncol(errors)))
+		par(mar=c(4.5,4.5,3,1))
+	
+		for(i in 1:ncol(errors)){
+
+			if(!any(!is.na(errors[, i]))){
+				plot(c(0,1), c(0,1), type='n', main=colnames(errors)[i], 
+					xlab='Frame', ylab='Unification error (mm)')
+				next
+			}
+
+			plot(c(1, nrow(errors)), c(0, max(errors[, i], na.rm=TRUE)), type='n', 
+				main=paste0(colnames(errors)[i], ' (Mean: ', round(mean(errors[, i], na.rm=TRUE), 3), '; SD: ', round(sd(errors[, i], na.rm=TRUE), 3), ')'), 
+				xlab='Frame', ylab='Unification error (mm)')
+
+			abline(h=0, lty=2, col=gray(0.5))
+
+			points(1:nrow(errors), errors[, i], type='l')
+		}
+	
+		dev.off()
+	
+	}
+
+	motion[['xyz']] <- ct_arr
+	motion[['tmat']] <- tm_arr
+
+	rlist <- list(
+		'motion'=motion,
 		'error'=errors
+		#''=xr_arr_n
 	)
 }
