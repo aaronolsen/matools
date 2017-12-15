@@ -1,4 +1,4 @@
-writeMotion <- function(x, file){
+writeMotion <- function(x, file, digits = NULL){
 
 	# Create write mat
 	write_mat <- NULL
@@ -6,6 +6,7 @@ writeMotion <- function(x, file){
 	if(is.matrix(x)){
 
 		write_mat <- x
+
 	}else{
 
 		for(xn in names(x)){
@@ -17,9 +18,8 @@ writeMotion <- function(x, file){
 			
 				# Convert array of transformation matrices to matrix
 				tmat <- as.data.frame(tmarr2mat(x[[xn]]))
-			
-				# Add columns
-				write_mat <- cbind(write_mat, tmat)
+
+				if(!is.null(digits)) tmat <- signif(tmat, digits)
 
 				# Add columns
 				if(is.null(write_mat)){
@@ -32,6 +32,8 @@ writeMotion <- function(x, file){
 
 				# Convert array of points to matrix
 				xyz <- as.data.frame(arr2mat(x[[xn]]))
+				
+				if(!is.null(digits)) xyz <- signif(xyz, digits)
 
 				# Add columns
 				if(is.null(write_mat)){
