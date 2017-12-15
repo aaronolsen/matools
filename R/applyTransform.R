@@ -8,10 +8,10 @@ applyTransform <- function(to, tmat, assoc = NULL){
 	if(is.vector(pts)) pts <- matrix(pts, nrow=1, ncol=length(pts))
 
 	# If assoc is NULL and tmat is more than a single transformation matrix, set body associations based on point names
-	if(is.null(assoc) && length(dim(tmat)) > 2 && sum(grepl('_', rownames(pts))) == nrow(pts)){
+	if(is.null(assoc) && length(dim(tmat)) > 2 && sum(grepl('_|-', rownames(pts))) == nrow(pts)){
 		
 		# Get part of rowname preceding '_' for each point
-		assoc <- unlist(lapply(strsplit(dimnames(pts)[[1]], '_'), 'head', 1))
+		assoc <- unlist(lapply(strsplit(dimnames(pts)[[1]], '_|-'), 'head', 1))
 	}
 
 	# Transformation matrix
@@ -93,6 +93,17 @@ applyTransform <- function(to, tmat, assoc = NULL){
 			#tmat <- matrix(tmat, nrow=4, ncol=4*dim(tmat)[3])
 			#rmat1 <- rbind(matrix(pts, nrow=3, ncol=dim(pts)[1]*dim(pts)[3]), rep(1, dim(pts)[1]*dim(pts)[3]))
 			#rmat2 <- matrix(rmat1, nrow=4*dim(pts)[3], ncol=dim(pts)[1])
+
+		}else if(length(dim(pts)) == 4){
+			
+			# Transform transformations
+			for(body in 1:dim(pts)[3]){
+				for(iter in 1:dim(pts)[4]){
+					pts[, , body, iter] <- tmat[, , iter] %*% pts[, , body, iter]
+				}
+			}
+
+			return(pts)
 		}
 
 	# Transformation 4-d array
