@@ -18,10 +18,20 @@ applyTransform <- function(to, tmat, assoc = NULL){
 	if(length(dim(tmat)) == 2){
 	
 		if(length(dim(pts)) == 3){
-			
-			pcoor <- pts
-			for(i in 1:dim(pcoor)[3]) pcoor[,, i] <- mtransform(pcoor[,, i], tmat)
-			return(pcoor)
+		
+			# XYZ coordinates
+			if(dim(pts)[2] == 3){
+
+				pcoor <- pts
+				for(i in 1:dim(pcoor)[3]) pcoor[,, i] <- mtransform(pcoor[,, i], tmat)
+				return(pcoor)
+
+			# Transformation arrray
+			}else if(dim(pts)[2] == 4){
+
+				for(i in 1:dim(pts)[3]) pts[,, i] <- tmat %*% pts[,, i]
+				return(pts)
+			}
 		}
 	
 		# Get point coordinates as matrix for transformation - coerce to matrix if single point
@@ -38,7 +48,7 @@ applyTransform <- function(to, tmat, assoc = NULL){
 	}else if(length(dim(tmat)) == 3){
 	
 		if(length(dim(pts)) == 2){
-
+		
 			if(is.null(dimnames(tmat)[[3]])){
 
 				## Single body
@@ -71,13 +81,13 @@ applyTransform <- function(to, tmat, assoc = NULL){
 
 					# Find points associated with body
 					body_assoc <- which(assoc == body_name)
-	
+
 					# Skip if no points associated with body
 					if(length(body_assoc) == 0) next
 
 					pts[body_assoc, ] <- mtransform(pts[body_assoc, ], tmat[, , body])
 				}
-			
+		
 				return(pts)
 
 			}
