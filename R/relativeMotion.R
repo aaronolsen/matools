@@ -12,6 +12,7 @@ relativeMotion <- function(motion, fixed, ref.iter = 1){
 
 		# Set fixed coordinate reference
 		if(is.vector(fixed)) ref_xyz <- xyz[fixed, , ref.iter]
+		if(is.matrix(fixed)) ref_xyz <- fixed
 
 		# Get number of iterations
 		n_iter <- motion$n.iter
@@ -24,6 +25,9 @@ relativeMotion <- function(motion, fixed, ref.iter = 1){
 			 
 			# Save copied alignment
 			xyz[, , iter] <- best_align$mc
+
+			# Apply transformation to transformation matrices if present
+			if(!is.null(motion$tmat)) motion$tmat[, , , iter] <- applyTransform(motion$tmat[, , , iter], best_align$tmat)
 		}
 		
 		# Replace xyz
