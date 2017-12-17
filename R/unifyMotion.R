@@ -1,5 +1,5 @@
 unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.iter = c(1), 
-	replace.xyz = FALSE, plot.diag = NULL, skip.bodies = c()){
+	replace.xyz = TRUE, plot.diag = NULL, skip.bodies = c()){
 
 	add.xr <- TRUE
 
