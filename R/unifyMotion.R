@@ -1,5 +1,5 @@
 unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.iter = c(1), 
-	replace.xyz = TRUE, plot.diag = NULL, skip.bodies = c()){
+	replace.xyz = TRUE, plot.diag = NULL, virtual.rm = FALSE, skip.bodies = c()){
 
 	add.xr <- TRUE
 
@@ -16,9 +16,6 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 	body_names <- rownames(ct_mat)
 	body_names <- gsub('_[A-Za-z0-9-]*', '', body_names)
 
-	# Remove any skip body names
-	if(length(skip.bodies) > 0) body_names <- body_names[!body_names %in% skip.bodies]
-
 	#body_names <- gsub('[0-9]', '', body_names)
 	#for(i in 1:2) body_names <- gsub(paste0('_(ant|sup|mid|inf|pos)[_]?'), '_', body_names)
 	#body_names <- gsub('_$', '', body_names)
@@ -28,6 +25,18 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 	body_names_vm[grepl('-', body_names)] <- gsub('[A-Za-z]+-', '', body_names[grepl('-', body_names)])
 	body_names <- gsub('-[A-Za-z]+', '', body_names)
 	names(body_names_vm) <- body_names
+
+	# If virtual.rm is TRUE, remove virtual markers
+	if(virtual.rm){
+		ct_mat <- ct_mat[is.na(body_names_vm),]
+		body_names <- rownames(ct_mat)
+		body_names <- gsub('_[A-Za-z0-9-]*', '', body_names)
+		body_names_vm <- rep(NA, length(body_names))
+		names(body_names_vm) <- body_names
+	}
+
+	# Remove any skip body names
+	if(length(skip.bodies) > 0) body_names <- body_names[!body_names %in% skip.bodies]
 
 	# Set body associations
 	body_assoc <- body_names
