@@ -123,7 +123,7 @@ filterMotion <- function(motion, min.value, min.length, xyz.use = NULL, span.fac
 			##
 			# Plot point derivative
 			xlim <- range(times)
-			ylim <- c(0, max(xyz_d))
+			ylim <- c(0, max(xyz_d, na.rm=TRUE))
 			plot(xlim, ylim, type='n', ylab='Derivative of point position', xlab=time_label)
 			abline(h=0, lty=2, col=gray(0.7))
 			for(i in 1:nrow(xyz_d)){
@@ -133,7 +133,7 @@ filterMotion <- function(motion, min.value, min.length, xyz.use = NULL, span.fac
 			##
 			# Plot mean absolute derivative
 			xlim <- range(times)
-			ylim <- c(0, max(xyz_mad))
+			ylim <- c(0, max(xyz_mad, na.rm=TRUE))
 			plot(xlim, ylim, type='n', ylab='Mean absolute value of derivative', xlab=time_label)
 			#polygon(x=rbind(c(xlim[1],min.value),c(xlim[2],min.value),c(xlim[2],0),c(xlim[1],0)), 
 			#	col=rgb(0.8,0.8,1), border=NA)
@@ -168,7 +168,7 @@ filterMotion <- function(motion, min.value, min.length, xyz.use = NULL, span.fac
 			
 			# Plot point positions over times
 			xlim <- range(times)
-			ylim <- range(xyz_mc)
+			ylim <- range(xyz_mc, na.rm=TRUE)
 			plot(xlim, ylim, type='n', ylab='Mean-centered position', xlab=time_label)
 
 			# Plot polygon in background for removed portions
@@ -198,7 +198,7 @@ filterMotion <- function(motion, min.value, min.length, xyz.use = NULL, span.fac
 
 			# Plot point positions over times
 			xlim <- c(1,dim(xyz_trim_mc)[3])
-			ylim <- range(xyz_trim_mc)
+			ylim <- range(xyz_trim_mc, na.rm=TRUE)
 			plot(xlim, ylim, type='n', ylab='Mean-centered position (trimmed)', xlab=time_label)
 		
 			for(i in 1:dim(xyz_trim_mc)[1]) for(j in 1:dim(xyz_trim_mc)[2]) points(xlim[1]:xlim[2], xyz_trim_mc[i, j, ], type='l', col=cols[i])
