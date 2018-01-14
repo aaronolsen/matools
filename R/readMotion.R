@@ -34,6 +34,17 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 		stop("'.txt' file reading not yet supported.")
 	}
 
+	# Get first line
+	first_line <- readLines(file[1], n=1)
+	
+	# Get column names (using read.csv converts '-' into '.')
+	col_names <- strsplit(first_line, split=sep)[[1]]
+	if(quote != '') col_names <- gsub(quote, '', col_names)
+
+	# Set column names
+	if(length(col_names) == ncol(read_matrix) + 1) col_names <- col_names[2:length(col_names)]
+	colnames(read_matrix) <- col_names
+
 	# If first column is X, remove
 	row_names <- NULL
 	if(colnames(read_matrix)[1] == 'X'){
