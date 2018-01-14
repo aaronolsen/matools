@@ -17,7 +17,12 @@ applyTransform <- function(to, tmat, assoc = NULL){
 	# Transformation matrix
 	if(length(dim(tmat)) == 2){
 	
-		if(length(dim(pts)) == 3){
+		if(length(dim(pts)) == 2){
+
+			# 2 t-mats
+			if(dim(pts)[2] == 4) return(tmat %*% pts)
+
+		}else if(length(dim(pts)) == 3){
 		
 			# XYZ coordinates
 			if(dim(pts)[2] == 3){
@@ -63,7 +68,7 @@ applyTransform <- function(to, tmat, assoc = NULL){
 				tcoor <- apply(tmat, 3, '%*%', pcoor)
 
 				# Convert to array
-				tcoor_arr <- array(tcoor, dim=c(4, nrow(pts), dim(tmat)[3]))
+				tcoor_arr <- array(tcoor, dim=c(4, nrow(pts), dim(tmat)[3]), dimnames=list(NULL, rownames(pts), NULL))
 
 				# Swap first two dimensions (transpose each "matrix" within array) and remove 1s
 				if(dim(tcoor_arr)[2] == 1){
