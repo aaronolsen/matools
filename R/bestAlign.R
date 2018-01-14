@@ -2,17 +2,38 @@ bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
 
 	## See fit_joint_model for revised svd code that fixes bug-- I think I've updated this, based on procAlign
 
-	# If m2 is 3-d array
+	# If m1 is 3-d array
+	if(length(dim(m1)) == 3 && length(dim(m2)) == 2){
+
+		# Get number of iterations
+		n_iter <- dim(m1)[3]
+
+		# Get common points
+		common_names <- rownames(m1)[rownames(m1) %in% dimnames(m2)[[1]]]
+		
+		# Array for transformed m2
+		m2r <- array(NA, dim=c(dim(m2), n_iter), dimnames=list(dimnames(m2)[[1]], NULL, NULL))
+		
+		# Create transformation array
+		tmat <- array(NA, dim=c(4,4,n_iter))
+
+		# Not finished
+		return(NULL)
+	}
+
 	if(length(dim(m2)) == 3){
 		
 		# Get number of iterations
 		n_iter <- dim(m2)[3]
-	
+		
+		# Get common points
+		common_names <- rownames(m1)[rownames(m1) %in% dimnames(m2)[[1]]]
+
 		# Each iteration
 		for(iter in 1:n_iter){
 
 			# Find translation and rotation to align m2 to m1
-			m2[, , iter] <- bestAlign(m1, m2[rownames(m1), , iter], m2[, , iter])$mc
+			m2[, , iter] <- bestAlign(m1[common_names, ], m2[common_names, , iter], m2[, , iter])$mc
 		}
 
 		return(m2)
@@ -63,6 +84,10 @@ bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
 	m1oc <- scale(m1o, center=TRUE, scale=FALSE)
 	m2oc <- scale(m2o, center=TRUE, scale=FALSE)
 
+	# Treat as two vectors
+	if(nrow(m1oc) == 2){
+	}
+
 	# FIND ROTATION MATRIX TO APPLY TO M2 THAT MINIMIZES DISTANCE BETWEEN M1 AND M2
 	SVD <- svd(t(na.omit(m1oc)) %*% na.omit(m2oc))
 
@@ -89,7 +114,7 @@ bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
 	if(!is.null(m3)) m3r <- mtransform(m3c, tmat2)
 
 	# TEST WHETHER CHIRALITY OF POINT SET HAS FLIPPED
-	if(nrow(m1o) == 3 && nrow(m2) > 3){
+	if(nrow(m1o) == 3 && sum(!is.na(m2[,1])) > 3){
 		
 		# IF THE ALIGNMENT FLIPPED THE SET TO ITS MIRROR IMAGE, THE CROSS PRODUCT OF THE 
 		#	FIRST THREE POINTS WILL MAINTAIN THE SAME ORIENTATION. BUT ANY OTHER POINTS WILL
