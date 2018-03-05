@@ -13,9 +13,13 @@ smoothMotion <- function(xyz, span.factor = 18, min.times = 10, plot.diag = NULL
 		
 		if(!is.null(plot.diag)){
 			if(diag.combine.dim){
-				plot_height <- 2.8*dim(xyz)[1]
-				plot_width <- max(round(dim(xyz)[3]/230), 9)
+				plot_height <- 3.6*dim(xyz)[1]
+				plot_width <- max(round(dim(xyz)[3]/150), 18)
 				layout_mat <- cbind(1:dim(xyz)[1])
+
+				# Create layout matrix
+				layout_mat <- create_layout_matrix(num.elem=dim(xyz)[1], elem.plots=2, ncol=2)
+				
 			}else{
 				plot_height <- 3*dim(xyz)[1]
 				plot_width <- max(round(dim(xyz)[3]/70), 12)
@@ -30,6 +34,9 @@ smoothMotion <- function(xyz, span.factor = 18, min.times = 10, plot.diag = NULL
 			par(mar=c(4.5,4.5,3,1))
 			xlim <- range(times)
 		}
+
+		# Create deviation matrix
+		xyz_dev <- xyz*NA
 		
 		# Smooth each point
 		for(i in 1:dim(xyz)[1]){
@@ -41,6 +48,7 @@ smoothMotion <- function(xyz, span.factor = 18, min.times = 10, plot.diag = NULL
 				if(!is.null(plot.diag)){
 					if(diag.combine.dim){
 						plot(xlim, c(0,1), type='n', main=dimnames(xyz)[[1]][i], xlab='Time', ylab='Mean-centered values')
+						plot(xlim, c(0,1), type='n', main=dimnames(xyz)[[1]][i], xlab='Time', ylab='Deviation')
 					}else{
 						plot(xlim, c(0,1), type='n', main=dimnames(xyz)[[1]][i], xlab='Time', ylab='x-value')
 						plot(xlim, c(0,1), type='n', main=dimnames(xyz)[[1]][i], xlab='Time', ylab='y-value')
@@ -83,10 +91,10 @@ smoothMotion <- function(xyz, span.factor = 18, min.times = 10, plot.diag = NULL
 
 				if(!is.null(plot.diag)){
 					if(diag.combine.dim){
-						points(x=times, y=xyz_mc[,j], col=cols[j*2-1], cex=0.7)
+						points(x=times, y=xyz_mc[,j], type='l', lwd=2, col=cols[j*2-1], cex=0.7)
 						points(x=times[!is.na(xyz[i,j,])], smoothed-mean(xyz[i,j,], na.rm=TRUE), type='l', col=cols[j*2])
 					}else{
-						plot(x=times, y=xyz[i,j,], main=paste0(dimnames(xyz)[[1]][i], '.', xyz_label[j], 
+						plot(x=times, y=xyz[i,j,], type='l', lwd=2, main=paste0(dimnames(xyz)[[1]][i], '.', xyz_label[j], 
 							' (span: ', span, ')'), xlab='Time', ylab=paste0(xyz_label[j], '-value'), col=cols[j*2])
 						points(x=times[!is.na(xyz[i,j,])], smoothed, type='l', col=cols[j*2-1])
 					}
@@ -94,6 +102,22 @@ smoothMotion <- function(xyz, span.factor = 18, min.times = 10, plot.diag = NULL
 
 				# Replace unsmoothed with smoothed coordinates
 				xyz_smooth[i,j,!is.na(xyz[i,j,])] <- smoothed
+				
+				#
+				xyz_dev[i,j,!is.na(xyz[i,j,])] <- abs(smoothed-xyz[i,j,!is.na(xyz[i,j,])])
+			}
+
+			# Plot deviation from smoothed
+			if(!is.null(plot.diag) && diag.combine.dim){
+				
+				# Find sub of absolute deviations at each time
+				sum_dev <- colSums(xyz_dev[i,,], na.rm=TRUE)
+
+				# Create plot window
+				plot(x=times, y=sum_dev, type='l', main=paste0(dimnames(xyz)[[1]][i], 
+					' (mean: ', round(mean(sum_dev, na.rm=TRUE), 3), ' mm; max: ', 
+					round(max(sum_dev, na.rm=TRUE), 3), ' mm)'), xlab='Time', 
+					ylab='Absolute deviation from smoothed (mm)')
 			}
 		}
 
