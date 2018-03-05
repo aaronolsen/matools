@@ -22,7 +22,7 @@ relativeMotion <- function(motion, fixed, ref.iter = 1){
 
 			# Find translation and rotation to align coor to pts at point 1
 			best_align <- bestAlign(ref_xyz, xyz[rownames(ref_xyz), , iter], xyz[, , iter])
-			 
+
 			# Save copied alignment
 			xyz[, , iter] <- best_align$mc
 
