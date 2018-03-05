@@ -61,12 +61,21 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 	# Check if there are xyz coordinates
 	xyz_cols <- grepl(xyz.pattern, colnames(read_matrix), ignore.case=TRUE)
 
+	# Check if any Z columns
+	z_cols <- grepl('[_|.](Z)$', colnames(read_matrix), ignore.case=TRUE)
+
 	# Check for additional info columns
 	info_cols <- tmat_cols+xyz_cols == 0
 
 	# Set logicals
 	has_tmat <- ifelse(sum(tmat_cols) > 0, TRUE, FALSE)
 	has_xyz <- ifelse(sum(xyz_cols) > 0, TRUE, FALSE)
+	if(has_xyz && sum(z_cols) == 0){
+		has_xyz <- FALSE
+		has_xy <- TRUE
+	}else{
+		has_xy <- FALSE
+	}
 	has_info <- ifelse(sum(info_cols) > 0, TRUE, FALSE)
 
 	# Fill transformation array
@@ -126,15 +135,73 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 		xyz <- NULL
 	}
 
+	# Fill 2D coordinate array
+	if(has_xy){
+
+		# Get xy columns
+		xy_cols <- grepl('[_|.](X|Y)$', colnames(read_matrix), ignore.case=TRUE)
+
+		# Get columns
+		xy_mat <- matrix(as.numeric(read_matrix[, xy_cols]), nrow=nrow(read_matrix), ncol=sum(xy_cols), dimnames=list(row_names, colnames(read_matrix)[xy_cols]))
+
+		# Convert XYZ matrix to array
+		xy <- mat2arr(xy_mat, pattern='[.|_](x|y)$', ignore.case=TRUE)
+
+		# If 'cam#'	present, split into cams
+		if(grepl('cam[0-9]+', dimnames(xy)[[1]][1])){
+
+			# Get dimnames 1			
+			dimnames1 <- dimnames(xy)[[1]]
+
+			# Get camera names
+			cam_names <- rep(NA, dim(xy)[1])
+			for(i in 1:dim(xy)[1]){
+				reg_expr <- regexpr('cam[0-9]+', dimnames1[i])
+				cam_names[i] <- substr(dimnames1[i], reg_expr, reg_expr+attr(reg_expr, 'match.length'))
+			}
+			cam_names_unique <- sort(unique(cam_names))
+
+			# Create point names without cameras
+			dimnames1_wocam <- gsub('_cam[0-9]+$', '', dimnames1)
+			dimnames1_wocam <- gsub('_cam[0-9]+_', '_', dimnames1_wocam)
+			dimnames1_wocam_unique <- unique(dimnames1_wocam)
+			
+			# Create new array with cameras
+			xy_cam <- array(NA, dim=c(length(dimnames1_wocam_unique), dim(xy)[2],length(cam_names_unique),dim(xy)[3]), 
+				dimnames=list(dimnames1_wocam_unique, NULL, cam_names_unique, NULL))
+			
+			# Fill array
+			for(cam_name in cam_names_unique) xy_cam[dimnames1_wocam[cam_names == cam_name], , cam_name, ] <- xy[cam_names == cam_name, , ]
+
+			# Replace array			
+			xy <- xy_cam
+
+			# Get number of iterations
+			n_iter <- dim(xy)[4]
+		}else{
+
+			# Get number of iterations
+			n_iter <- dim(xy)[3]
+		}
+
+		# Convert NaNs to NA
+		xy[is.na(xy)] <- NA
+
+	}else{
+		xy <- NULL
+	}
+
 	# Set
 	rlist <- list()
 	rlist[['tmat']] <- tmat
 	rlist[['xyz']] <- xyz
+	rlist[['xy']] <- xy
 	
 	# Set classes
 	class(rlist) <- 'motion'
 	if(!is.null(tmat)) class(rlist[['tmat']]) <- 'tmat'
 	if(!is.null(xyz)) class(rlist[['xyz']]) <- 'xyz'
+	if(!is.null(xy)) class(rlist[['xy']]) <- 'xy'
 
 	# Add extra info columns
 	if(has_info){
@@ -248,7 +315,13 @@ print.motion <- function(x){
 		if(!is.null(dimnames(x$xyz)[[1]])) rc <- c(rc, paste0('\t', paste0(dimnames(x$xyz)[[1]], collapse='\n\t'), '\n'))
 	}
 
-	info_names <- x_names[!x_names %in% c('xyz', 'tmat', 'n.iter', 'replace.rows', 'remove.rows')]
+	# Print transformation matrix details	
+	if('xy' %in% x_names){
+		rc <- c(rc, paste0('$xy (', paste0(dim(x$xy), collapse='x'), ')', '\n'))
+		if(!is.null(dimnames(x$xy)[[1]])) rc <- c(rc, paste0('\t', paste0(dimnames(x$xy)[[1]], collapse='\n\t'), '\n'))
+	}
+
+	info_names <- x_names[!x_names %in% c('xyz', 'xy', 'tmat', 'n.iter', 'replace.rows', 'remove.rows')]
 
 	if(length(info_names) > 0){
 		xlist_to_df <- do.call(cbind.data.frame, x[info_names])
