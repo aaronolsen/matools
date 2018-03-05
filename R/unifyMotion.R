@@ -244,7 +244,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 			}
 
 			ct_arr[rownames(ct_mat_sub_t), , iter] <- ct_mat_sub_t
-
+			
 			#print(xr_mat_sub);print(ct_mat_sub_t)
 		}
 		
@@ -292,12 +292,15 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 		# If plot filename doesn't end in pdf, add
 		if(!grepl('[.]pdf$', plot.diag, ignore.case=TRUE)) plot.diag <- paste0(plot.diag, '.pdf')
 
+		# Set which columns to plot - not columns that are all NA
+		cols_plot <- which(colSums(is.na(errors)) < nrow(errors))
+
 		## Create error diagnostic plot
-		pdf(plot.diag, height=ncol(errors)*2.5, width=max(nrow(errors)/90, 7))
-		layout(cbind(1:ncol(errors)))
+		pdf(plot.diag, height=length(cols_plot)*2.5, width=max(nrow(errors)/90, 7))
+		layout(cbind(1:length(cols_plot)))
 		par(mar=c(4.5,4.5,3,1))
 	
-		for(i in 1:ncol(errors)){
+		for(i in cols_plot){
 
 			if(!any(!is.na(errors[, i]))){
 				plot(c(0,1), c(0,1), type='n', main=colnames(errors)[i], 
