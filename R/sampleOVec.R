@@ -32,7 +32,7 @@ sampleOVec <- function(v, n = NULL){
 	o_vecs <- matrix(NA, nrow(u_vecs), 3)
 
 	# Get cross product
-	for(i in 1:nrow(o_vecs)) o_vecs[i, ] <- uvector(cprod(v[i,], u_vecs[i,]))
+	for(i in 1:nrow(o_vecs)) o_vecs[i, ] <- uvector_ma(cprod_ma(v[i,], u_vecs[i,]))
 
 	niter <- 1
 	while(sum(rowSums(abs(o_vecs)) == 0) > 0 || niter < 10){

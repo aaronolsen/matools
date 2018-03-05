@@ -52,7 +52,7 @@ filterMotion <- function(motion, min.value, min.length, xyz.use = NULL, span.fac
 		for(i in 1:dim(xyz)[1]){
 
 			#
-			diff_xyz <- distPointToPoint(t(xyz_smooth[i,,]))
+			diff_xyz <- dppt(t(xyz_smooth[i,,]))
 			
 			# Find derivative
 			xyz_d[i, ] <- colMeans(rbind(c(NA, diff_xyz/diff(times)),

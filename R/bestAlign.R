@@ -122,12 +122,12 @@ bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
 		#	AND THESE POINTS CHANGES, IT INDICATES THE CHIRALITY HAS BEEN FLIPPED
 
 		# FIND NORMAL VECTORS FOR PRE AND POST ROTATED SETS
-		m2c_cprod <- uvector(cprod(m2c[2, ]-m2c[1, ], m2c[3, ]-m2c[1, ]))
-		m2r_cprod <- uvector(cprod(m2r[2, ]-m2r[1, ], m2r[3, ]-m2r[1, ]))
+		m2c_cprod <- uvector_ma(cprod_ma(m2c[2, ]-m2c[1, ], m2c[3, ]-m2c[1, ]))
+		m2r_cprod <- uvector_ma(cprod_ma(m2r[2, ]-m2r[1, ], m2r[3, ]-m2r[1, ]))
 		
 		# FIND DISTANCE FROM CPROD VECTOR TO OTHER POINTS
-		dpp <- distPointToPoint(m2c_cprod, m2c[4:min(7,nrow(m2c)), ])
-		dpp_r <- distPointToPoint(m2r_cprod, m2r[4:min(7,nrow(m2r)), ])
+		dpp <- dppt(m2c_cprod, m2c[4:min(7,nrow(m2c)), ])
+		dpp_r <- dppt(m2r_cprod, m2r[4:min(7,nrow(m2r)), ])
 		
 		# CHIRALITY HAS FLIPPED, FLIP 3RD COLUMN OF SVD$v AND RE-TRANSFORM
 		if(sum(round(abs(dpp - dpp_r), 7)) > 0.001){
