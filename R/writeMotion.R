@@ -47,6 +47,9 @@ writeMotion <- function(x, file, digits = NULL){
 				# If is list, unlist
 				if(is.list(x[[xn]])) x[[xn]] <- unlist(x[[xn]])
 
+				# Need to test whether values are numeric first (including case of some or all NAs)
+				#if(!is.null(digits)) x[[xn]] <- signif(x[[xn]], digits)
+
 				# Add columns
 				if(is.null(write_mat)){
 					write_mat <- as.data.frame(matrix(x[[xn]], ncol=1, dimnames=list(NULL, xn)))
