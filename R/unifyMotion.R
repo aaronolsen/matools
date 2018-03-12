@@ -1,5 +1,5 @@
 unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.iter = c(1), 
-	replace.xyz = TRUE, plot.diag = NULL, virtual.rm = FALSE, skip.bodies = c()){
+	replace.xyz = TRUE, plot.diag = NULL, vp.use = TRUE, cp.use = TRUE, skip.bodies = c()){
 
 	add.xr <- TRUE
 
@@ -26,15 +26,15 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 	body_names <- gsub('-[A-Za-z]+', '', body_names)
 	names(body_names_vm) <- body_names
 
-	# If virtual.rm is TRUE, remove virtual markers
-	if(virtual.rm){
+	# If vp.use is FALSE, remove virtual markers
+	if(!vp.use){
 		ct_mat <- ct_mat[is.na(body_names_vm),]
 		body_names <- rownames(ct_mat)
 		body_names <- gsub('_[A-Za-z0-9-]*', '', body_names)
 		body_names_vm <- rep(NA, length(body_names))
 		names(body_names_vm) <- body_names
 	}
-
+	
 	# Remove any skip body names
 	if(length(skip.bodies) > 0) body_names <- body_names[!body_names %in% skip.bodies]
 
@@ -81,9 +81,20 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 	ct_arr <- array(NA, dim=c(dim(ct_mat)[1], dim(xr_arr)[2:3]), dimnames=list(rownames(ct_mat), dimnames(xr_arr)[[3]]))
 
 	# Order in which to align body points - do bodies with virtual markers first
-	body_order <- setNames(rep(2, length(body_names)), body_names)
-	body_order[unique(names(body_names_vm[!is.na(body_names_vm)]))] <- 1
-	body_order <- sort(body_order)
+	#body_order <- setNames(rep(2, length(body_names)), body_names)
+	#body_order[unique(names(body_names_vm[!is.na(body_names_vm)]))] <- 1
+	#body_order <- sort(body_order)
+	
+	# Set order in which to unify bodies
+	set_unify_order <- setUnifyOrder(rownames(ct_mat))
+	unify_order <- set_unify_order$order
+	unify_cp <- set_unify_order$cp
+	
+	# If non NULL create array to store results of constraint plane transformations
+	if(cp.use && !is.null(unify_cp)){
+		col_names <- c('pre.min', 'pre.mean', 'pre.max', 'angle', 'post.min', 'post.mean', 'post.max')
+		cp_array <- array(NA, dim=c(length(unify_cp$id), length(col_names), motion$n.iter), dimnames=list(NULL, col_names, NULL))
+	}
 
 	# Get names of virtual markers
 	virtual_markers <- rownames(ct_mat)[!is.na(body_names_vm)]
@@ -94,9 +105,9 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 	xr_arr_n[dimnames(xr_arr)[[1]], , ] <- xr_arr
 
 	# Unification errors
-	errors <- matrix(NA, nrow=dim(xr_arr_n)[3], ncol=length(body_order), dimnames=list(NULL, names(body_order)))
+	errors <- matrix(NA, nrow=dim(xr_arr_n)[3], ncol=length(unify_order), dimnames=list(NULL, unify_order))
 
-	# Iterate through each frame of video
+	# Iterate through each frame
 	min_iter <- 1
 	max_iter <- dim(xr_arr_n)[3]
 	for(iter in min_iter:max_iter){
@@ -125,14 +136,14 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 		for(rowi in seq(1, nrow(m3), by=4)) cs_ini_align[, , ((rowi-1) / 4) + 1] <- align_ct_xr$mc[rowi:(rowi+3), ]
 		
 		# Unify markers
-		for(body_name in names(body_order)){
+		for(body_name in unify_order){
 
 			#if(!body_name %in% c('SuspensoriumL', 'Neurocranium')) next
 			if(print.progress && iter %in% print.progress.iter) cat(paste0('\t', body_name))
 			
-			# Get body landmarks
-			#ct_mat_sub <- ct_mat[which(body_assoc == body_name), ]
-			ct_row_sub <- grepl(paste0(body_name, '[_|-]'), paste0(rownames(ct_mat), '_'))
+			# Get all landmarks associated with body, including virtual point
+			ct_row_sub <- which(grepl(paste0('^', body_name, '(_|-)'), rownames(ct_mat)))
+			ct_row_sub <- c(ct_row_sub, which(grepl(paste0('-', body_name), rownames(ct_mat))))
 			ct_mat_sub <- ct_mat[ct_row_sub, ]
 			#print(rownames(ct_mat)[grepl(paste0(body_name, '_|-'), rownames(ct_mat))])
 		
@@ -150,7 +161,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 			#	next
 			#}
 			
-			# CT marker names in Xray
+			# CT marker names in Xray (beads and virtual points, does not include constraint planes/points)
 			ct_in_xr_names <- rownames(ct_mat_sub)[ct_in_xr]
 
 			# XROMM markers in CT
@@ -224,7 +235,51 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 				#cat(paste0('\t\t', paste0(rownames(align$dist.error), ': ', c(round(align$dist.error, 3)), collapse='\n\t\t'), '\n'))
 				cat(paste0('\t\tErrors: ', paste0(rownames(align$dist.error), ': ', c(round(align$dist.error, 3)), collapse='; '), '\n'))
 			}
+
+			#if(print.progress && iter %in% print.progress.iter) print(ct_mat_sub_t)
 			
+			ct_arr[rownames(ct_mat_sub_t), , iter] <- ct_mat_sub_t
+
+			## Impose any constraint planes
+			# Check if body is child in a constraint plane set
+			if(cp.use && body_name %in% unify_cp$child){
+
+				# Get CP IDs
+				cp_ids <- unify_cp$id[body_name == unify_cp$child]
+				
+				# Get matching index
+				cp_match <- unify_cp$id == cp_ids[1]
+
+				if(print.progress && iter %in% print.progress.iter){
+					if(length(cp_ids) == 1){
+						cat(paste0('\t\tRefining motion using constraint plane "', cp_ids,'" and parent body "', unify_cp$parent[cp_match], '"\n'))
+					}else{
+						cat(paste0('\t\tRefining motion using constraint planes "', paste0(cp_ids, collapse=','), '" and parent body "', unify_cp$parent[cp_match], '"\n'))
+					}
+				}
+				
+				# Find transformation from constraint plane and points
+				cpt <- suppressWarnings(constraintPlaneTransform(ct_arr[, , iter], cp_ids, unify_cp$child.type[cp_match]))
+				tmat <- cpt$tmat
+				cp_array[cp_ids,,iter] <- cpt$dist
+				#print(cp_array[,,iter])
+
+				if(print.progress && iter %in% print.progress.iter) cat(paste0('\t\tApplying transformation to: ', paste0(rownames(ct_mat_sub_t), collapse=', '), '\n'))
+
+				# Apply transformation to points and transformation
+				ct_arr[rownames(ct_mat_sub_t), , iter] <- applyTransform(ct_arr[rownames(ct_mat_sub_t), , iter], tmat)
+				ct_mat_sub_t <- applyTransform(ct_mat_sub_t, tmat)
+				tm_arr[, , body_name, iter] <- tmat %*% align$tmat
+
+				# Get new errors
+				beads_and_vp <- rownames(ct_mat_sub_t)[grepl('_bead|-', rownames(ct_mat_sub_t))]
+				dist_errors <- distPointToPoint(xr_arr_n[beads_and_vp, , iter], ct_mat_sub_t[beads_and_vp, ])
+				if(print.progress && iter %in% print.progress.iter) cat(paste0('\t\tErrors: ', paste0(names(dist_errors), ': ', c(round(dist_errors, 3)), collapse='; '), '\n'))
+
+				# Save new errors
+				errors[iter, body_name] <- mean(dist_errors)
+			}
+
 			# Add new positions of any virtual markers to xr_arr_n
 			if(sum(rownames(ct_mat_sub) %in% virtual_markers) > 0){
 
@@ -238,21 +293,38 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 				if(length(virtual_markers_sub) > 0){
 
 					if(print.progress && iter %in% print.progress.iter) cat(paste0('\t\tAdding virtual markers: ', paste0(virtual_markers_sub, collapse=', '), '\n'))
-					
+
 					xr_arr_n[virtual_markers_sub, , iter] <- ct_mat_sub_t[virtual_markers_sub, ]
 				}
 			}
 
-			ct_arr[rownames(ct_mat_sub_t), , iter] <- ct_mat_sub_t
-			
 			#print(xr_mat_sub);print(ct_mat_sub_t)
 		}
 		
 		#return(1)
 		
+		#break
 		#if(iter > 4) break
 		
 		#print(ct_arr[, , iter])
+	}
+
+	if(cp.use && !is.null(unify_cp) && print.progress){
+		cat(paste0('\nResults of constraint plane transformations:\n'))
+
+		for(i in 1:dim(cp_array)[1]){
+			cat(paste0('\t', i, ') ', unify_cp$parent[i]), '(')
+			if(unify_cp$parent.type[i] == 'v'){ cat('plane') }else{ cat('points') }
+			cat(paste0(') - ', unify_cp$child[i], ' ('))
+			if(unify_cp$child.type[i] == 'v'){ cat('plane') }else{ cat('points') }
+			cat(paste0(')\n'))
+			cat(paste0('\t\tPoint-to-plane distance from: Min:', round(min(cp_array[i,'pre.min',], na.rm=TRUE), 3), ', Mean:', round(mean(cp_array[i,'pre.mean',], na.rm=TRUE), 3), ', Max:', round(max(cp_array[i,'pre.max',], na.rm=TRUE), 3), '\n'))
+			if(sum(!is.na(cp_array[i,'post.min',])) > 0){
+				cat(paste0('\t\tTo: Min:', round(min(cp_array[i,'post.min',], na.rm=TRUE), 3), ', Mean:', round(mean(cp_array[i,'post.mean',], na.rm=TRUE), 3), ', Max:', round(max(cp_array[i,'post.max',], na.rm=TRUE), 3), '\n'))
+				cat(paste0('\t\tAngle (deg): Min:', round(min(cp_array[i,'angle',], na.rm=TRUE), 3), ', Mean:', round(mean(cp_array[i,'angle',], na.rm=TRUE), 3), ', Max:', round(max(cp_array[i,'angle',], na.rm=TRUE), 3), '\n'))
+			}
+			cat(paste0('\t\tNumber of frames corrected: ', sum(!is.na(cp_array[i,'post.min',])), ' of ', motion$n.iter, '\n'))
+		}
 	}
 
 	# If any values in CT array are NA, replace with X-ray markers that have the same name
