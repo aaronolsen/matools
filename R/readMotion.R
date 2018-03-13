@@ -5,6 +5,43 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 	## transformation matrices. File type is detected based on whether first column name 
 	## ends in R11
 
+	if(length(file) > 1){
+
+		# Start with NULL motion object
+		all_motion <- NULL
+
+		# Multiple files
+		for(i in 1:length(file)){
+
+			if(!file.exists(file[i])) stop(paste0("'", file[i], "' not found."))
+
+			# Read each file
+			read_motion <- readMotion(file[i], nrows=nrows, vectors.as=vectors.as, vectors.name=vectors.name,
+				xyz.pattern=xyz.pattern, tm.pattern=tm.pattern)
+
+			# Add rows to all motion object
+			all_motion <- addMotion(read_motion, all_motion)
+		}
+	
+		return(all_motion)
+
+	}else{
+		
+		if(!file.exists(file)) stop(paste0("'", file, "' not found."))
+
+		if(file.info(file)$isdir){
+
+			# Remove end backslash for consistency (not sure if this is necessary)
+			file <- gsub('/$', '', file)
+
+			# Get files in directory
+			list_files <- list.files(file)
+			
+			return(readMotion(paste0(file, '/', list_files), nrows=nrows, vectors.as=vectors.as, vectors.name=vectors.name,
+				xyz.pattern=xyz.pattern, tm.pattern=tm.pattern))
+		}
+	}
+
 	# Set disallowed input names
 	disallowed_names <- c('replace.rows', 'remove.rows', 'n.iter')
 
