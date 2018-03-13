@@ -38,6 +38,9 @@ addMotion <- function(add, to, add.dim = 1){
 				# Add rows
 				new_xyz[dimnames(to$xyz)[[1]], , 1:dim(to$xyz)[3]] <- to$xyz
 				new_xyz[dimnames(add)[[1]], , (dim(to$xyz)[3]+1):(dim(to$xyz)[3]+dim(add)[3])] <- add
+
+				# Update number of iterations
+				to$n.iter <- dim(new_xyz)[3]
 			}
 
 			# Add to structure
@@ -65,6 +68,9 @@ addMotion <- function(add, to, add.dim = 1){
 				# If not null, add rows
 				new_tmat[, , dimnames(to$tmat)[[3]], 1:dim(to$tmat)[4]] <- to$tmat
 				new_tmat[, , dimnames(add)[[3]], (dim(to$tmat)[4]+1):(dim(to$tmat)[4]+dim(add)[4])] <- add
+
+				# Update number of iterations
+				to$n.iter <- dim(new_tmat)[4]
 			}
 
 			# Add to structure
