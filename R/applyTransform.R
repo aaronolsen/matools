@@ -56,26 +56,36 @@ applyTransform <- function(to, tmat, assoc = NULL){
 		
 			if(is.null(dimnames(tmat)[[3]])){
 
-				## Single body
-				# Create array for transformed points
-				parr <- array(NA, dim=c(nrow(pts), 3, dim(tmat)[3]), dimnames=list(rownames(pts), NULL, NULL))
+				if(dim(pts)[2] == 3){
 
-				# Get point coordinates as matrix for transformation - coerce to matrix if single point
-				pcoor <- matrix(1, 4, nrow(pts), dimnames=list(NULL, rownames(pts)))
-				pcoor[1:3, ] <- t(pts)
+					## Single body
+					# Create array for transformed points
+					parr <- array(NA, dim=c(nrow(pts), 3, dim(tmat)[3]), dimnames=list(rownames(pts), NULL, NULL))
 
-				# Apply transformation
-				tcoor <- apply(tmat, 3, '%*%', pcoor)
+					# Get point coordinates as matrix for transformation - coerce to matrix if single point
+					pcoor <- matrix(1, 4, nrow(pts), dimnames=list(NULL, rownames(pts)))
+					pcoor[1:3, ] <- t(pts)
 
-				# Convert to array
-				tcoor_arr <- array(tcoor, dim=c(4, nrow(pts), dim(tmat)[3]), dimnames=list(NULL, rownames(pts), NULL))
+					# Apply transformation
+					tcoor <- apply(tmat, 3, '%*%', pcoor)
 
-				# Swap first two dimensions (transpose each "matrix" within array) and remove 1s
-				if(dim(tcoor_arr)[2] == 1){
-					return(t(tcoor_arr[1:3, 1, ]))
+					# Convert to array
+					tcoor_arr <- array(tcoor, dim=c(4, nrow(pts), dim(tmat)[3]), dimnames=list(NULL, rownames(pts), NULL))
+
+					# Swap first two dimensions (transpose each "matrix" within array) and remove 1s
+					if(dim(tcoor_arr)[2] == 1){
+						return(t(tcoor_arr[1:3, 1, ]))
+					}else{
+						return(aperm(tcoor_arr[1:3, , ], perm=c(2,1,3)))
+					}
+
 				}else{
-					return(aperm(tcoor_arr[1:3, , ], perm=c(2,1,3)))
+
+					# Just overwrite transformation array
+					for(i in 1:dim(tmat)[3]) tmat[,,i] <- tmat[,,i] %*% pts
+					return(tmat)
 				}
+
 			}else{
 
 				# Multiple bodies - apply transformations for each body
