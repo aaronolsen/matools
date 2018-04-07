@@ -1,0 +1,1 @@
+stderr <- function(x, ...) sd(x, ...)/sqrt(sum(!is.na(x)))
