@@ -94,33 +94,49 @@ smoothMotion <- function(motion, span.factor = 18, min.times = 10, plot.diag = N
 
 			xyz_dev_wins <- xyz*NA
 			dev_wins_bin <- xyz*NA
-			overlap_pts <- list()
+			#overlap_pts <- list()
 
 			# For each point
 			for(i in 1:dim(xyz)[1]){
 
-				if(sum(is.na(xyz[i,,]) > 0)) next
+				# Find first and last non-na
+				is_na <- which(!is.na(xyz[i,1,]))
+
+				# All NA
+				if(length(is_na) == 0) next
+
+				# Get first and last
+				first_last <- is_na[c(1, length(is_na))]
+				
+				# Set range
+				frange <- first_last[1]:first_last[2]
+				
+				# Number of non-NA values is less than min.times
+				if(length(frange) < min.times) next
+				
+				# Check for NAs within
+				if(sum(is.na(xyz[i,1,frange]) > 0)) next
 
 				# For each dimension
 				for(j in 1:dim(xyz)[2]){
 
 					# Find mean deviation by sliding window
-					xyz_dev_wins[i,j,] <- abs(slide_fun(xyz_dev[i,j,], window=sd.win, step=1, fun='mean'))
+					xyz_dev_wins[i,j,frange] <- abs(slide_fun(xyz_dev[i,j,frange], window=sd.win, step=1, fun='mean'))
 				
 					# Bin values
-					dev_wins_bin[i,j,] <- bin_replace(xyz_dev_wins[i,j,], smooth_bin_mat)
+					dev_wins_bin[i,j,frange] <- bin_replace(xyz_dev_wins[i,j,frange], smooth_bin_mat)
 
 					# Replace small bins with maximal value in range around bin
-					dev_wins_bin[i,j,] <- replace_small_bins(dev_wins_bin[i,j,], min.size=bin.replace.min, replace.with='max')
+					dev_wins_bin[i,j,frange] <- replace_small_bins(dev_wins_bin[i,j,frange], min.size=bin.replace.min, replace.with='max')
 
 					# Apply loess filter by bin
-					apply_loess <- apply_loess_by_bin(xyz[i,j,], dev_wins_bin[i,j,], span_factors, overlap=1)
-					xyz_smooth[i,j,] <- apply_loess$x
-					overlap_pts[[(i-1)*dim(xyz)[2]+j]] <- apply_loess$overlap
-
-					# Find distance from smoothed
-					xyz_dist[i,] <- dppt(t(xyz_smooth[i,,]), t(xyz[i,,]))
+					apply_loess <- apply_loess_by_bin(xyz[i,j,frange], dev_wins_bin[i,j,frange], span_factors, overlap=1)
+					xyz_smooth[i,j,frange] <- apply_loess$x
+					#overlap_pts[[(i-1)*dim(xyz)[2]+j]] <- apply_loess$overlap
 				}
+
+				# Find distance from smoothed
+				xyz_dist[i,frange] <- dppt(t(xyz_smooth[i,,frange]), t(xyz[i,,frange]))
 			}
 		}
 
