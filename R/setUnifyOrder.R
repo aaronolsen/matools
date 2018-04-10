@@ -80,6 +80,7 @@ setUnifyOrder <- function(markers){
 	# Remove duplicate rows
 	rownames(parent_children) <- paste0(parent_children[,1], '-', parent_children[,2])
 	parent_children <- parent_children[unique(rownames(parent_children)), ]
+	if(!is.matrix(parent_children)) parent_children <- matrix(parent_children, 1, 2)
 
 	# Get list of all bodies in parent-child matrix
 	parent_children_bodies <- unique(c(parent_children))
