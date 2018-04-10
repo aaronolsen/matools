@@ -310,6 +310,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 			if(replace_vm){
 				if(any(virtual_markers %in% rownames(ct_mat_sub_t)) && any(virtual_markers %in% rownames(xr_mat_sub))){
 					vm_match <- virtual_markers[virtual_markers %in% rownames(ct_mat_sub_t)]
+					vm_match <- vm_match[vm_match %in% rownames(xr_mat_sub)]
 					ct_mat_sub_t[vm_match, ] <- xr_mat_sub[vm_match, ]
 				}
 			}
