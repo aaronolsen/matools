@@ -1,4 +1,4 @@
-readLandmarks <- function(file, period.to.space = TRUE, row.names = 1){
+readLandmarks <- function(file, period.to.space = TRUE, row.names = 1, flip = FALSE){
 
 	# Read file
 	mat <- as.matrix(read.csv(file=file, row.names=row.names))
@@ -15,11 +15,24 @@ readLandmarks <- function(file, period.to.space = TRUE, row.names = 1){
 		# Get unique names
 		unique_sp_names <- unique(sp_names)
 
+		# Detect whether 2D or 3D
+		if(length(sp_names) == length(unique_sp_names)*3){ ndim <- 3 }else{ ndim <- 2 }
+
 		# Create array
-		arr <- array(NA, dim=c(nrow(mat), 3, length(unique_sp_names)), dimnames=list(rownames(mat), c('x','y','z'), unique_sp_names))
+		if(flip){
+
+			arr <- array(NA, dim=c(length(unique_sp_names), ndim, nrow(mat)), dimnames=list(unique_sp_names, c('x','y','z')[1:ndim], rownames(mat)))
 		
-		# Fill array
-		for(unique_sp_name in unique_sp_names) arr[, , unique_sp_name] <- mat[, unique_sp_name == sp_names]
+			# Fill array
+			for(unique_sp_name in unique_sp_names) arr[unique_sp_name, , ] <- t(mat[, unique_sp_name == sp_names])
+
+		}else{
+
+			arr <- array(NA, dim=c(nrow(mat), ndim, length(unique_sp_names)), dimnames=list(rownames(mat), c('x','y','z')[1:ndim], unique_sp_names))
+		
+			# Fill array
+			for(unique_sp_name in unique_sp_names) arr[, , unique_sp_name] <- mat[, unique_sp_name == sp_names]
+		}
 
 		# Return array		
 		return(arr)
