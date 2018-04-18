@@ -112,7 +112,7 @@ setUnifyOrder <- function(markers){
 	}
 	
 	list(
-		'order'=setNames(c(bodies_indep, parents_only, bodies_dep), NULL),
+		'order'=setNames(unique(c(bodies_indep, parents_only, bodies_dep)), NULL),
 		'cp'=cp_list
 	)
 }
