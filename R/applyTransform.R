@@ -1,4 +1,4 @@
-applyTransform <- function(to, tmat, assoc = NULL){
+applyTransform <- function(to, tmat, assoc = NULL, single.as = 'matrix'){
 
 	# Default, set 'to' as points - will eventually work with various shapes so that many 
 	#	points do not have to be transformed to transform whole shape
@@ -53,15 +53,12 @@ applyTransform <- function(to, tmat, assoc = NULL){
 	}else if(length(dim(tmat)) == 3){
 	
 		if(length(dim(pts)) == 2){
-		
+
 			if(is.null(dimnames(tmat)[[3]])){
 
 				if(dim(pts)[2] == 3){
 
 					## Single body
-					# Create array for transformed points
-					parr <- array(NA, dim=c(nrow(pts), 3, dim(tmat)[3]), dimnames=list(rownames(pts), NULL, NULL))
-
 					# Get point coordinates as matrix for transformation - coerce to matrix if single point
 					pcoor <- matrix(1, 4, nrow(pts), dimnames=list(NULL, rownames(pts)))
 					pcoor[1:3, ] <- t(pts)
@@ -74,7 +71,12 @@ applyTransform <- function(to, tmat, assoc = NULL){
 
 					# Swap first two dimensions (transpose each "matrix" within array) and remove 1s
 					if(dim(tcoor_arr)[2] == 1){
-						return(t(tcoor_arr[1:3, 1, ]))
+						if(single.as == 'matrix'){
+							return(t(tcoor_arr[1:3, 1, ]))
+						}else{
+							return(array(tcoor_arr[1:3, 1, ], c(1,3,dim(tmat)[3])))
+						}
+						#
 					}else{
 						return(aperm(tcoor_arr[1:3, , ], perm=c(2,1,3)))
 					}
@@ -162,7 +164,11 @@ applyTransform <- function(to, tmat, assoc = NULL){
 				tcoor_arr <- array(tcoor, dim=c(4, length(body_assoc), dim(tmat)[4]))
 
 				# Swap first two dimensions (transpose each "matrix" within array) and remove 1s
-				parr[colnames(pcoor), , ] <- aperm(tcoor_arr[1:3, , ], perm=c(2,1,3))
+				if(length(dim(tcoor_arr[1:3,,])) == 2){
+					parr[colnames(pcoor), , ] <- tcoor_arr[1:3, , ]
+				}else{
+					parr[colnames(pcoor), , ] <- aperm(tcoor_arr[1:3, , ], perm=c(2,1,3))
+				}
 			}
 
 			class(parr) <- 'xyz'
