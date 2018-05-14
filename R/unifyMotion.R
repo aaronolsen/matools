@@ -295,6 +295,12 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 					align <- bestAlign(xr_mat_sub, ct_mat_sub, sign=1)	#, m3=cs_ini[, , body_name]
 					ct_mat_sub_t <- align$mat
 
+					if(print.progress && iter %in% print.progress.iter){
+						#print(xr_mat_sub)
+						#print(ct_mat_sub)
+						#print(applyTransform(ct_mat_sub, align$tmat))
+					}
+
 					# Save error
 					errors[iter, body_name] <- mean(align$dist.errors)
 				
@@ -435,7 +441,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 			cat(paste0('\t\tNumber of frames corrected: ', sum(!is.na(cp_array[i,'post.min',])), ' of ', motion$n.iter, '\n'))
 		}
 	}
-
+	
 	# If any values in CT array are NA, replace with X-ray markers that have the same name
 	ct_is_na <- is.na(ct_arr[, 1, 1])
 	if(sum(ct_is_na) > 0){
