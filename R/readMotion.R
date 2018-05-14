@@ -89,8 +89,12 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 		read_matrix <- read_matrix[, 2:ncol(read_matrix)]
 	}
 
+	# Sort column names and remove columns with no name
+	col_names <- sort(colnames(read_matrix))
+	col_names <- col_names[!col_names == '']
+
 	# Sort column names
-	read_matrix <- read_matrix[, sort(colnames(read_matrix))]
+	read_matrix <- read_matrix[, col_names]
 
 	# Check if there are transformations
 	tmat_cols <- grepl(tm.pattern, colnames(read_matrix), ignore.case=TRUE)
