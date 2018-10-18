@@ -19,15 +19,26 @@ apply_loess_by_bin <- function(x, bins, span, overlap=0){
 		
 		y <- x[x_idx]
 		
-		lp_loess <- suppressWarnings(loess(y ~ t, data=data.frame(t=x_idx, y=y), 
-			span=(span[bins[i]]/length(y))+0.01))
-			#span=0.07))
-		
-		xf[x_idx_no] <- predict(lp_loess, x_idx_no)
-		fitmat <- rbind(fitmat, rep(NA, length(x)))
+		if(span[bins[i]] == 0){
 
-		fitmat[nrow(fitmat), x_idx] <- predict(lp_loess, x_idx)
-		fitbin <- c(fitbin, bins[i])
+			xf[x_idx_no] <- y[x_idx_no]
+			fitmat <- rbind(fitmat, rep(NA, length(x)))
+
+			fitmat[nrow(fitmat), x_idx] <- y
+			fitbin <- c(fitbin, bins[i])
+
+		}else{
+
+			lp_loess <- suppressWarnings(loess(y ~ t, data=data.frame(t=x_idx, y=y), 
+				span=(span[bins[i]]/length(y))+0.01))
+				#span=0.07))
+		
+			xf[x_idx_no] <- predict(lp_loess, x_idx_no)
+			fitmat <- rbind(fitmat, rep(NA, length(x)))
+
+			fitmat[nrow(fitmat), x_idx] <- predict(lp_loess, x_idx)
+			fitbin <- c(fitbin, bins[i])
+		}
 
 		i <- first_not
 	}

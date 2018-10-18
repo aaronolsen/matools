@@ -48,7 +48,7 @@ writeMotion <- function(x, file, digits = NULL){
 				if(is.list(x[[xn]])) x[[xn]] <- unlist(x[[xn]])
 
 				# Need to test whether values are numeric first (including case of some or all NAs)
-				#if(!is.null(digits)) x[[xn]] <- signif(x[[xn]], digits)
+				if(!is.null(digits) && sum(!suppressWarnings(is.numeric(x[[xn]]))) == 0 && sum(is.na(x[[xn]])) == 0) x[[xn]] <- signif(x[[xn]], digits)
 
 				# Add columns
 				if(is.null(write_mat)){

@@ -16,6 +16,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 	# Get body names
 	body_names <- rownames(ct_mat)
 	body_names <- gsub('_[A-Za-z0-9-]*', '', body_names)
+	body_names_ct_mat <- body_names
 
 	#body_names <- gsub('[0-9]', '', body_names)
 	#for(i in 1:2) body_names <- gsub(paste0('_(ant|sup|mid|inf|pos)[_]?'), '_', body_names)
@@ -58,9 +59,13 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 	tm_arr <- array(NA, dim=c(4, 4, length(tm_names), dim(xr_arr)[3]), 
 		dimnames=list(NULL, NULL, tm_names, NULL))
 
-	# Create array for transformed CT markers
-	ct_arr <- array(NA, dim=c(dim(ct_mat)[1], dim(xr_arr)[2:3]), dimnames=list(rownames(ct_mat), dimnames(xr_arr)[[3]]))
+	# Remove points not in input motion object and associated with any skipped bodies
+	ct_arr_pts <- rownames(ct_mat)
+	ct_arr_pts <- ct_arr_pts[(ct_arr_pts %in% dimnames(motion$xyz)[[1]]) + (!body_names_ct_mat %in% skip.bodies) != 0]
 
+	# Create array for transformed CT markers
+	ct_arr <- array(NA, dim=c(length(ct_arr_pts), dim(xr_arr)[2:3]), dimnames=list(ct_arr_pts, dimnames(xr_arr)[[3]]))
+	
 	# Order in which to align body points - do bodies with virtual markers first
 	#body_order <- setNames(rep(2, length(body_names)), body_names)
 	#body_order[unique(names(body_names_vm[!is.na(body_names_vm)]))] <- 1
@@ -441,7 +446,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 			cat(paste0('\t\tNumber of frames corrected: ', sum(!is.na(cp_array[i,'post.min',])), ' of ', motion$n.iter, '\n'))
 		}
 	}
-	
+
 	# If any values in CT array are NA, replace with X-ray markers that have the same name
 	ct_is_na <- is.na(ct_arr[, 1, 1])
 	if(sum(ct_is_na) > 0){
