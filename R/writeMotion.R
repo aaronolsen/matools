@@ -61,6 +61,4 @@ writeMotion <- function(x, file, digits = NULL){
 	}
 
 	if(grepl('[.]csv$', file)) write.csv(x=write_mat, file=file, row.names=FALSE)
-	
-	NULL
 }
