@@ -4,7 +4,7 @@ Title: Motion analysis tools
 Description: Functions for motion analysis.
 Version: 1.0
 Depends: R (>= 2.11.0)
-Imports: grDevices, graphics, stats, utils
+Imports: grDevices, graphics, stats, utils, svgViewR (>= 1.0.1)
 Author: Aaron Olsen
 Maintainer: Aaron Olsen <aarolsen@gmail.com>
 Repository: CRAN

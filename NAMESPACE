@@ -2,5 +2,6 @@ import(grDevices)
 import(graphics)
 import(stats)
 import(utils)
+import(svgViewR)
 
 exportPattern("^[[:alpha:]]+")
