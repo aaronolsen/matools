@@ -1,18 +1,23 @@
-smoothMotion <- function(motion, span.factor = 18, min.times = 10, plot.diag = NULL, n.bins = 3, 
+smoothMotion <- function(motion, span.factor = 18, min.times = 10, plot.diag = NULL, n.bins = NULL, 
 	adaptive = FALSE, smooth.bins = NULL, bin.replace.min = 10, sd.win = 10){
 	# , span.bin.dec = 0.02){
 
+	# Reverse span factor to coincide with smooth bins order
+	span.factor <- rev(span.factor)
+
 	# Get xyz coordinates
+	input_coordinates <- FALSE
 	if(is.list(motion)){
 		xyz <- motion$xyz
 	}else{
+		input_coordinates <- TRUE
 		xyz <- motion
 	}
 	
 	xyz_label <- c('x', 'y', 'z')
 	dark_shade <- 130
 	cols <- c(rgb(1,0,0), rgb(dark_shade/255,0,0), rgb(0,1,0), rgb(0,dark_shade/255,0), rgb(0,1,1), rgb(0,dark_shade/255,dark_shade/255))
-	cols_sd <- svg.pal(6)[4:6]
+	cols_sd <- c("#984EA3","#FF7F00","#FFFF33")
 
 	if(length(dim(xyz)) == 3){
 
@@ -68,15 +73,19 @@ smoothMotion <- function(motion, span.factor = 18, min.times = 10, plot.diag = N
 			dev_range <- range(xyz_dev, na.rm=TRUE)
 			dev_mean <- mean(xyz_dev, na.rm=TRUE)
 			
+			# Set number of bins from span.factor length if NULL
+			if(is.null(n.bins)) n.bins <- length(span.factor)
+			
 			# Create smooth bins
 			if(!is.null(smooth.bins)){
 				smooth_bins <- smooth.bins
 			}else{
+
 				smooth_bins <- c(0, exp(1)^seq(log(dev_mean), log(dev_range[2]*1.01), length=n.bins))
 				#print(smooth_bins)
 				#smooth_bins <- c(0, seq(dev_mean, dev_range[2]*1.01, length=n.bins))
 			}
-
+			
 			#print(smooth_bins)
 
 			# Create bin matrix
@@ -257,6 +266,10 @@ smoothMotion <- function(motion, span.factor = 18, min.times = 10, plot.diag = N
 		
 		# Transformation array
 	}
+
+	if(input_coordinates) return(xyz_smooth)
 	
-	xyz_smooth
+	motion$xyz <- xyz_smooth
+
+	return(motion)
 }
