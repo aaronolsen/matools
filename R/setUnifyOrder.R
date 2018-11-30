@@ -27,7 +27,7 @@ setUnifyOrder <- function(markers){
 	}
 
 	# If no virtual points or constraint planes, any order works; return alphabetic order
-	if(length(markers_vp) == 0 && length(markers_cpv1) == 0) return(sort(bodies_unique))
+	if(length(markers_vp) == 0 && length(markers_cpv1) == 0) return(list('order'=sort(bodies_unique)))
 
 	# Create parent-child matrix
 	parent_children <- matrix(NA, nrow=length(markers_vp)+length(markers_cpv1), ncol=2)
