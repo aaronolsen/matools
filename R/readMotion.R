@@ -345,15 +345,21 @@ print.motion <- function(x){
 	}
 	if('tmat' %in% x_names){
 		rc <- c(rc, paste0('$tmat (', paste0(dim(x$tmat), collapse='x'), ')', '\n'))
-		#if(length(dim(x$tmat)) > 2 && !is.null(dimnames(x$tmat)[[3]])) rc <- c(rc, paste0('\tBodies: ', paste0(dimnames(x$tmat)[[3]], collapse=', '), '\n'))
-		if(length(dim(x$tmat)) > 2 && !is.null(dimnames(x$tmat)[[3]])) rc <- c(rc, paste0('\t', paste0(dimnames(x$tmat)[[3]], collapse='\n\t'), '\n'))
+		if(length(dim(x$tmat)) > 2 && !is.null(dimnames(x$tmat)[[3]])){
+			dots <- ''
+			if(dim(x$tmat)[3] > 10) dots <- '\n\t...'
+			rc <- c(rc, paste0('\t', paste0(dimnames(x$tmat)[[3]][1:min(10,dim(x$tmat)[3])], collapse='\n\t'), dots, '\n'))
+		}
 	}
 
 	# Print transformation matrix details	
 	if('xyz' %in% x_names){
 		rc <- c(rc, paste0('$xyz (', paste0(dim(x$xyz), collapse='x'), ')', '\n'))
-		#if(!is.null(dimnames(x$xyz)[[1]])) rc <- c(rc, paste0('\tCoordinate names: ', paste0(dimnames(x$xyz)[[1]], collapse=', '), '\n'))
-		if(!is.null(dimnames(x$xyz)[[1]])) rc <- c(rc, paste0('\t', paste0(dimnames(x$xyz)[[1]], collapse='\n\t'), '\n'))
+		if(!is.null(dimnames(x$xyz)[[1]])){
+			dots <- ''
+			if(dim(x$xyz)[1] > 10) dots <- '\n\t...'
+			rc <- c(rc, paste0('\t', paste0(dimnames(x$xyz)[[1]][1:min(10,dim(x$xyz)[1])], collapse='\n\t'), dots, '\n'))
+		}
 	}
 
 	# Print transformation matrix details	
