@@ -5,7 +5,15 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 	add.xr <- TRUE
 
 	# Set point array
-	xr_arr <- motion$xyz
+	if(is.list(motion)){
+		input_list <- TRUE
+		xr_arr <- motion$xyz
+		n_iter <- motion$n.iter
+	}else{
+		input_list <- FALSE
+		xr_arr <- xyz
+		n_iter <- dim(xyz)[3]
+	}
 	
 	# Set matrix coordinates
 	ct_mat <- xyz.mat
@@ -61,7 +69,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 
 	# Remove points not in input motion object and associated with any skipped bodies
 	ct_arr_pts <- rownames(ct_mat)
-	ct_arr_pts <- ct_arr_pts[(ct_arr_pts %in% dimnames(motion$xyz)[[1]]) + (!body_names_ct_mat %in% skip.bodies) != 0]
+	ct_arr_pts <- ct_arr_pts[(ct_arr_pts %in% dimnames(xr_arr)[[1]]) + (!body_names_ct_mat %in% skip.bodies) != 0]
 
 	# Create array for transformed CT markers
 	ct_arr <- array(NA, dim=c(length(ct_arr_pts), dim(xr_arr)[2:3]), dimnames=list(ct_arr_pts, dimnames(xr_arr)[[3]]))
@@ -81,7 +89,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 	# If non NULL create array to store results of constraint plane transformations
 	if(cp.use && !is.null(unify_cp)){
 		col_names <- c('pre.min', 'pre.mean', 'pre.max', 'angle', 'post.min', 'post.mean', 'post.max')
-		cp_array <- array(NA, dim=c(length(unify_cp$id), length(col_names), motion$n.iter), dimnames=list(NULL, col_names, NULL))
+		cp_array <- array(NA, dim=c(length(unify_cp$id), length(col_names), n_iter), dimnames=list(NULL, col_names, NULL))
 	}
 
 
@@ -443,7 +451,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 				cat(paste0('\t\tTo: Min:', round(min(cp_array[i,'post.min',], na.rm=TRUE), 3), ', Mean:', round(mean(cp_array[i,'post.mean',], na.rm=TRUE), 3), ', Max:', round(max(cp_array[i,'post.max',], na.rm=TRUE), 3), '\n'))
 				cat(paste0('\t\tAngle (deg): Min:', round(min(cp_array[i,'angle',], na.rm=TRUE), 3), ', Mean:', round(mean(cp_array[i,'angle',], na.rm=TRUE), 3), ', Max:', round(max(cp_array[i,'angle',], na.rm=TRUE), 3), '\n'))
 			}
-			cat(paste0('\t\tNumber of frames corrected: ', sum(!is.na(cp_array[i,'post.min',])), ' of ', motion$n.iter, '\n'))
+			cat(paste0('\t\tNumber of frames corrected: ', sum(!is.na(cp_array[i,'post.min',])), ' of ', n_iter, '\n'))
 		}
 	}
 
@@ -512,13 +520,37 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 		dev.off()
 	
 	}
+	
+	class(errors) <- 'unify_errors'
 
-	motion[['xyz']] <- ct_arr
-	motion[['tmat']] <- tm_arr
+	if(input_list){
 
-	rlist <- list(
-		'motion'=motion,
-		'error'=errors
-		#''=xr_arr_n
-	)
+		motion[['xyz']] <- ct_arr
+		motion[['tmat']] <- tm_arr
+
+		rlist <- list(
+			'motion'=motion,
+			'error'=errors
+		)
+	}else{
+
+		rlist <- list(
+			'motion'=list('xyz'=ct_arr, 'tmat'=tm_arr),
+			'error'=errors
+		)
+	}
+
+	rlist
+}
+
+print.unify_errors <- function(x){
+	
+	rc <- ''
+	
+	class(x) <- NULL
+	xlist_to_df <- as.data.frame(x)
+	colnames(xlist_to_df) <- paste0('$', colnames(xlist_to_df))
+	rc <- c(rc, paste0(paste0(capture.output(print(head(xlist_to_df))), collapse='\n'), '\n'))
+
+	cat(rc, sep='')
 }
