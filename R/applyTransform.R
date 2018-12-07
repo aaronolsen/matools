@@ -31,14 +31,22 @@ applyTransform <- function(to, tmat, assoc = NULL, single.as = 'matrix'){
 				for(i in 1:dim(pcoor)[3]) pcoor[,, i] <- mtransform(pcoor[,, i], tmat)
 				return(pcoor)
 
-			# Transformation arrray
+			# Transformation array
 			}else if(dim(pts)[2] == 4){
 
 				for(i in 1:dim(pts)[3]) pts[,, i] <- tmat %*% pts[,, i]
 				return(pts)
 			}
+
+		}else if(length(dim(pts)) == 4){
+
+			# Transformation array
+			for(i in 1:dim(pts)[3]) pts[,,i,] <- applyTransform(to=pts[,,i,], tmat=tmat)
+
+			return(pts)
+
 		}
-	
+
 		# Get point coordinates as matrix for transformation - coerce to matrix if single point
 		pcoor <- matrix(1, nrow(pts), 4, dimnames=list(rownames(pts), NULL))
 		pcoor[, 1:3] <- pts
