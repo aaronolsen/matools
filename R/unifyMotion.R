@@ -57,6 +57,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 	# Set unify mode
 	#	1: rotate about real points
 	#	2: best fit using real and virtual points
+	# Doesn't seem fully implemented?
 	unify_mode <- setNames(as.list(rep(1, length(body_names))), body_names)
 	if(!is.null(unify.mode)) for(i in 1:length(unify.mode)) unify_mode[names(unify.mode)[i]] <- unify.mode[[i]]
 
@@ -242,53 +243,63 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 			}else{
 
 				#
-				if(sum(virtual_markers %in% rownames(xr_mat_sub)) == 1 && unify_mode[body_name] == 1){
+				if(sum(virtual_markers %in% rownames(xr_mat_sub)) >= 1 && unify_mode[body_name] == 1){
 
 					# Get name of VM
-					vm_name <- virtual_markers[virtual_markers %in% rownames(xr_mat_sub)]
+					vm_names <- virtual_markers[virtual_markers %in% rownames(xr_mat_sub)]
 
 					# Get xr mat without vm
-					xr_mat_sub_novm <- xr_mat_sub[rownames(xr_mat_sub) != vm_name, ]
+					xr_mat_sub_novm <- xr_mat_sub[!rownames(xr_mat_sub) %in% vm_names, ]
 
-					# Transform CT markers about two xr coordinates
+					# Get initial alignment of CT markers and x-ray coordinates without virtual markers
 					align <- bestAlign(xr_mat_sub_novm, ct_mat_sub, sign=1)	#, m3=cs_ini[, , body_name]
 					ct_mat_sub_t <- align$mat
-
-					# Axis for refining rotation
+	
+					# Get axis for refining rotation
+					# Center of rotation can be any point on line
 					if(nrow(xr_mat_sub_novm) == 2){
-						if(print.progress && iter %in% print.progress.iter) cat(paste0(': transform CT markers from two real markers and refine rotation about the axis defined by these two points using virtual point "', vm_name, '"\n'))
-						raxis <- xr_mat_sub_novm
+						if(print.progress && iter %in% print.progress.iter){
+							cat(paste0(': transform CT markers from two real markers and optimize rotation about the axis defined by these two points\n\t\t\tusing virtual marker(s): "', paste0(vm_names, collapse='", "'), '"\n'))
+						}
+						raxis <- uvector(xr_mat_sub_novm[2,]-xr_mat_sub_novm[1,])
+						center <- xr_mat_sub_novm[1,]
 					}else{
-						if(print.progress && iter %in% print.progress.iter) cat(paste0(': transform CT markers from real markers and refine rotation about axis fit to real points using virtual point "', vm_name, '"\n'))
+						if(print.progress && iter %in% print.progress.iter){
+							cat(paste0(': transform CT markers from real markers and optimize rotation about axis fit to real points\n\t\t\tusing virtual marker(s): "', paste0(vm_names, collapse='", "'), '"\n'))
+						}
 						fit_line <- fitLine3D(xr_mat_sub_novm)
-						raxis <- rbind(fit_line$p1, fit_line$p2)
+						raxis <- uvector(fit_line$p2-fit_line$p1)
+						center <- fit_line$p1
 					}
-				
-					# Project point onto axis
-					ct_proj <- pointNormalOnLine(ct_mat_sub_t[vm_name,], raxis[1,], raxis[2,])
-				
-					# Initial vector
-					v_i <- ct_mat_sub_t[vm_name,] - ct_proj
-				
-					# Final vector
-					v_f <- xr_mat_sub[vm_name,] - pointNormalOnLine(xr_mat_sub[vm_name,], raxis[1,], raxis[2,])
-				
-					# Find rotation about axis defined by two points
-					a_vec <- avec(v_i, v_f, axis=raxis[2,]-raxis[1,], about.axis=TRUE)
 
-					tmat1 <- tmat2 <- tmat3 <- diag(4)
-					tmat1[1:3,4] <- ct_proj
-					tmat2[1:3,1:3] <- tMatrixEP(raxis[2,]-raxis[1,], a_vec)
-					tmat3[1:3,4] <- -ct_proj
-				
-					# Save transformation matrix
-					tm_arr[, , body_name, iter] <- tmat1 %*% tmat2 %*% tmat3 %*% align$tmat
-				
-					ct_mat_sub_t <- applyTransform(ct_mat_sub, tm_arr[, , body_name, iter])
-				
-					# Save error
+					# Find common markers
 					common_markers <- rownames(ct_mat_sub_t)[rownames(ct_mat_sub_t) %in% rownames(xr_mat_sub)]
-					
+
+					# Find initial error
+					rotate_error_init <- ref_rotate_error(0, center=center, axis=raxis, 
+						ref.points=ct_mat_sub_t[common_markers,], fit.points=xr_mat_sub[common_markers,])
+
+					# Run optimization
+					rotation_fit <- tryCatch(
+						expr={
+							nlminb(start=0, objective=ref_rotate_error, lower=-2*pi, upper=2*pi, center=center, 
+								axis=raxis, ref.points=ct_mat_sub_t[common_markers,], fit.points=xr_mat_sub[common_markers,])
+						},
+						error=function(cond) {print(cond);return(NULL)},
+						warning=function(cond) {print(cond);return(NULL)}
+					)
+
+					# Save transformation matrix using optimized angle, including initial transformation
+					tmat1 <- tmat2 <- tmat3 <- diag(4)
+					tmat1[1:3,4] <- center
+					tmat2[1:3,1:3] <- tMatrixEP(raxis, rotation_fit$par)
+					tmat3[1:3,4] <- -center
+					tm_arr[, , body_name, iter] <- tmat1 %*% tmat2 %*% tmat3 %*% align$tmat
+
+					# Apply transformation
+					ct_mat_sub_t <- applyTransform(ct_mat_sub, tm_arr[, , body_name, iter])
+
+					# Save error
 					# Remove virtual markers from error calculation
 					common_markers <- common_markers[!grepl('-', common_markers)]
 
