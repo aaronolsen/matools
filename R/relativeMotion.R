@@ -13,6 +13,9 @@ relativeMotion <- function(motion, fixed, ref.iter = 1){
 		# Set fixed coordinate reference
 		if(is.vector(fixed)) ref_xyz <- xyz[fixed, , ref.iter]
 		if(is.matrix(fixed)) ref_xyz <- fixed
+		
+		# Check for NA values
+		if(sum(!is.na(ref_xyz[, 1])) < 3) stop('Fixed points must have at least 3 non-NA values at reference iteration. Input points have ', sum(!is.na(ref_xyz[, 1])), ' non-NA value(s) at reference iteration.')
 
 		# Get number of iterations
 		n_iter <- motion$n.iter
