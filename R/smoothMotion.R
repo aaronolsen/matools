@@ -78,9 +78,13 @@ smoothMotion <- function(motion, span.factor = 18, min.times = 10, plot.diag = N
 			
 			# Create smooth bins
 			if(!is.null(smooth.bins)){
-				smooth_bins <- smooth.bins
-			}else{
 
+				# Add large number to end of smooth.bins if same length as span.factor
+				if(length(smooth.bins) == length(span.factor)) smooth.bins <- c(smooth.bins, tail(smooth.bins, 1)*10000)
+
+				smooth_bins <- smooth.bins
+				
+			}else{
 				smooth_bins <- c(0, exp(1)^seq(log(dev_mean), log(dev_range[2]*1.01), length=n.bins))
 				#print(smooth_bins)
 				#smooth_bins <- c(0, seq(dev_mean, dev_range[2]*1.01, length=n.bins))
