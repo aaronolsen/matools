@@ -91,13 +91,13 @@ bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
 		tmat2 <- diag(4)
 		if(sum(colMeans(abs(m2oc - m1oc))) > 1e-10){
 
-			m_axis <- cprod(m1oc[2,]-m1oc[1,], m2oc[2,]-m2oc[1,])
+			m_axis <- cprod_ma(m1oc[2,]-m1oc[1,], m2oc[2,]-m2oc[1,])
 
 			# Find angle between points
-			m_avec <- avec(m2oc[2,], m1oc[2,], axis=m_axis, about.axis=TRUE)
+			m_avec <- avec_ma(m2oc[2,], m1oc[2,], axis=m_axis, about.axis=TRUE)
 
 			# Find rotation
-			RM <- tMatrixEP(v=m_axis, -m_avec)
+			RM <- tMatrixEP_ma(v=m_axis, -m_avec)
 			
 			#rotated <- rotateBody(m2oc, m_axis, -m_avec)
 			#cat('-----------\n')
