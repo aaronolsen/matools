@@ -31,7 +31,7 @@ setUnifyOrder <- function(markers){
 
 	# Create parent-child matrix
 	parent_children <- matrix(NA, nrow=length(markers_vp)+length(markers_cpv1), ncol=2)
-	
+
 	# Fill matrix
 	# Virtual points
 	if(length(markers_vp) > 0){
@@ -91,28 +91,65 @@ setUnifyOrder <- function(markers){
 	# Find all bodies that are only parents
 	parents_only <- unique(parent_children[!parent_children[,1] %in% parent_children[,2], 1])
 
-	## Get children iteratively through parents
-	# Set parents only as next parents to start
-	next_parents <- parents_only
+	# Find all dependent bodies
+	bodies_dep <- bodies_unique[bodies_unique %in% parent_children_bodies]
 
-	n_max <- 100
-	n <- 1
-	bodies_dep <- c()
-	while(n < n_max){
+	# Set order of dependent bodies
+	body_dep_order <- setNames(rep(NA, length(bodies_dep)), bodies_dep)
+
+	# Set parents as zero
+	body_dep_order[parents_only] <- 0
+
+	#print(parent_children)
+	#print(body_dep_order)
 	
-		# Get children of parents
-		next_parents <- parent_children[parent_children[, 1] %in% next_parents, 2]
+	# Set order of dependent bodies
+	# Loop until all are assigned
+	n <- 0
+	while(n < 10){
+
+		if(length(body_dep_order) > 1){
+			for(j in 1:length(body_dep_order)){
 		
-		# If no children, stop
-		if(length(next_parents) == 0) break
+				#cat(bodies_dep[j], '\n')
+
+				# Find all parents
+				parents_vec <- parent_children[bodies_dep[j] == parent_children[,2], 1]
+			
+				#cat('\t', paste0(parents_vec, collapse=','), '\n')
+
+				# Skip if only parent
+				if(bodies_dep[j] %in% parents_only) next
+			
+				# If order is assigned to parent, assign later order to child
+				for(i in 1:length(parents_vec)){
+				
+					# Get order
+					parent_order <- body_dep_order[parents_vec[i]]
+				
+					# Skip if not given an order yet (NA)
+					if(is.na(parent_order)) next
+				
+					#cat('\t', parent_order, '\n')
+				
+					if(is.na(body_dep_order[bodies_dep[j]])){
+						body_dep_order[bodies_dep[j]] <- parent_order+1
+					}else{
+						if(parent_order+1 > body_dep_order[bodies_dep[j]]) body_dep_order[bodies_dep[j]] <- parent_order+1
+					}
+				}
+
+				#cat('-------\n')
+			}
+		}
 		
-		# Add to 
-		bodies_dep <- c(bodies_dep, next_parents)
+		if(!any(is.na(body_dep_order))) break
+		
 		n <- n + 1
 	}
-	
+		
 	list(
-		'order'=setNames(unique(c(bodies_indep, parents_only, bodies_dep)), NULL),
+		'order'=setNames(c(bodies_indep, names(sort(body_dep_order))), NULL),
 		'cp'=cp_list
 	)
 }
