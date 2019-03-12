@@ -191,9 +191,9 @@ interpolateMotion <- function(motion, fit.win.max = 50, fit.win.min = 1, int.win
 					points(x=times[pre_inter], xyz[i,j,pre_inter]-mean(xyz_inter[i,j,], na.rm=TRUE), type='l', col=cols[j*2])
 				}
 			}
+			
+			dev.off()
 		}
-
-		if(!is.null(plot.diag)) dev.off()
 	}
 	
 	## Interpolate transformation array?
