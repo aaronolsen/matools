@@ -45,7 +45,7 @@ interpolateMotion <- function(motion, fit.win.max = 50, fit.win.min = 1, int.win
 			
 			inter_indices[[i]] <- list()
 
-			print(na_wins)
+			#print(na_wins)
 
 			# For each window
 			for(win_num in 1:nrow(na_wins)){
@@ -116,7 +116,7 @@ interpolateMotion <- function(motion, fit.win.max = 50, fit.win.min = 1, int.win
 		cols_sd <- c("#984EA3","#FF7F00","#FFFF33")
 
 		### Plot
-		if(!is.null(plot.diag)){
+		if(!is.null(plot.diag) && any(point_has_inter)){
 
 			# Change to indices
 			point_has_inter <- which(point_has_inter)
