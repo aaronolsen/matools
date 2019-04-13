@@ -175,20 +175,34 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 				
 				next
 
-			}else if(nrow(xr_mat_sub) == 1){
+			}else if(nrow(xr_mat_sub) >= 1 && nrow(xr_mat_sub) <= 2){
 			
-				# Check that marker is not virtual
+				# Get common marker
 				common_marker <- rownames(xr_mat_sub)
-				if(grepl('-', common_marker)){
-					if(print.progress && iter %in% print.progress.iter) cat(': single marker is virtual marker\n')
-					next
-				}
 
-				if(print.progress && iter %in% print.progress.iter) cat(': translate and orient body with CT alignment\n')
-				
 				# Determine whether to do initial orientation
 				orient <- TRUE
 				if(!is.null(near.bodies) && sum(near.bodies[[body_name]]) == 0) orient <- FALSE
+
+				if(nrow(xr_mat_sub) == 1){
+
+					# Check that marker is not virtual
+					if(grepl('-', common_marker)){
+						if(print.progress && iter %in% print.progress.iter) cat(': single marker is virtual marker\n')
+						next
+					}
+
+					if(print.progress && iter %in% print.progress.iter){
+						if(orient){
+							cat(': orient body with CT alignment\n')
+						}else{
+							cat(': translate body with CT alignment\n')
+						}
+					}
+
+				}else{
+					if(print.progress && iter %in% print.progress.iter) cat(': align body with CT alignment using two markers\n')
+				}
 
 				if(orient){
 
@@ -205,45 +219,107 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 					m2 <- ct_mat
 
 					if(print.progress && iter %in% print.progress.iter){
-						cat('\t\tSetting initial body position and orientation based on alignment with the following neighboring landmarks:\n\t\t\t')
+						cat('\t\tSetting initial body orientation based on alignment with the following neighboring landmarks:\n\t\t\t')
 						cat(paste0(rownames(m1)[rownames(m1) %in% rownames(m2)], collapse='\n\t\t\t'))
 						cat('\n')
 					}
-				
+			
 					align_ct_xr <- bestAlign(m1, m2, sign=1) #m3=m3, 
 					ct_mat_align <- align_ct_xr$mat
 
 					# Set initial transformation based on alignment
-					tmat <- align_ct_xr$tmat
+					orient_tmat <- align_ct_xr$tmat
 
 				}else{
 
-					tmat <- diag(4)
+					orient_tmat <- diag(4)
 					ct_mat_align <- ct_mat
 				}
 
-				if(print.progress && iter %in% print.progress.iter) cat('\t\tTranslate body based on single marker\n')
+				if(nrow(xr_mat_sub) == 1){
 
-				# Translate based on single marker
-				tmat[1:3, 4] <- tmat[1:3, 4] + (xr_mat_sub[common_marker, ] - ct_mat_align[common_marker, ])
+					if(print.progress && iter %in% print.progress.iter) cat('\t\tTranslate body based on single marker\n')
 
-				# Translate CT markers based on common point with X-ray markers
-				ct_mat_sub_t <- ct_mat_align[rownames(ct_mat_sub), ] + matrix(xr_mat_sub[common_marker, ] - ct_mat_align[common_marker, ], nrow=nrow(ct_mat_sub), ncol=ncol(ct_mat_sub), byrow=TRUE)
+					# Translate based on single marker
+					orient_tmat[1:3, 4] <- orient_tmat[1:3, 4] + (xr_mat_sub[common_marker, ] - ct_mat_align[common_marker, ])
+
+					# Translate CT markers based on common point with X-ray markers
+					ct_mat_sub_t <- ct_mat_align[rownames(ct_mat_sub), ] + matrix(xr_mat_sub[common_marker, ] - ct_mat_align[common_marker, ], nrow=nrow(ct_mat_sub), ncol=ncol(ct_mat_sub), byrow=TRUE)
 				
-				# Save transformation matrix
-				tm_arr[, , body_name, iter] <- tmat
+					# Save transformation matrix
+					tm_arr[, , body_name, iter] <- orient_tmat
+
+				}else{
+				
+					if(print.progress && iter %in% print.progress.iter) cat('\t\tTransform body based on two markers\n')
+
+					# Find transformation based on two markers
+					best_align <- bestAlign(xr_mat_sub[common_marker, ], ct_mat[common_marker, ])
+					
+					# Get transformation 
+					two_marker_tmat <- best_align$tmat
+
+					# Create 3-point constellation to find rotation about axis between two points
+					ct_three_pt_set <- rbind(ct_mat[common_marker, ], vorthogonal_svg(ct_mat[common_marker[2], ]-ct_mat[common_marker[1], ]) + colMeans(ct_mat[common_marker, ]))
+					
+					# Transform 3 pt sets
+					orient_three_pt_set <- applyTransform(ct_three_pt_set, orient_tmat)
+					two_marker_three_pt_set <- applyTransform(ct_three_pt_set, two_marker_tmat)
+					
+					# Translate orient set to align centroids
+					orient_three_pt_set <- orient_three_pt_set + matrix(colMeans(two_marker_three_pt_set) - colMeans(orient_three_pt_set), 3, 3, byrow=TRUE)
+					
+					# Find rotation about axis between two points to bring
+					two_marker_axis <- uvector_ma(two_marker_three_pt_set[1,]-two_marker_three_pt_set[2,])
+					
+					# Find vectors for rotation
+					rot_cor <- colMeans(two_marker_three_pt_set[1:2,])
+					rot_vf <- orient_three_pt_set[3,] - rot_cor
+					rot_vi <- two_marker_three_pt_set[3,] - rot_cor
+					
+					# Find rotation
+					tmat1 <- tmat2 <- tmat3 <- diag(4)
+					tmat1[1:3, 4] <- rot_cor
+					tmat2[1:3, 1:3] <- tMatrixEP_ma(two_marker_axis, avec_ma(rot_vi, rot_vf, axis=two_marker_axis, about.axis=TRUE))
+					tmat3[1:3, 4] <- -rot_cor
+					rot_tmat <- tmat1 %*% tmat2 %*% tmat3
+					
+					if(iter == 1){
+						#print(best_align)
+						#print(applyTransform(to=ct_mat_sub, tmat=two_marker_tmat))
+					}
+
+					# Apply rotation
+					two_marker_tmat <- rot_tmat %*% two_marker_tmat
+					
+					# 
+					if(iter == 1){
+						#print(applyTransform(to=ct_mat_sub, tmat=two_marker_tmat))
+						#print(xr_mat_sub[common_marker, ])
+					}
+
+					# Transform CT markers
+					ct_mat_sub_t <- applyTransform(to=ct_mat_sub, tmat=two_marker_tmat)
+
+					# Save transformation matrix
+					tm_arr[, , body_name, iter] <- two_marker_tmat
+
+					# Find which are NA
+					#which_is_na <- is.na(xr_arr_n[ct_in_xr_names, 1, 1])
+
+					#if(print.progress && iter %in% print.progress.iter) cat(paste0(': ', nrow(xr_mat_sub), ' common point(s) between CT and X-Ray sets for body \'', body_name, '\'\n'))
+					#if(print.progress && iter %in% print.progress.iter && sum(which_is_na) > 0) cat(paste0('\t\t"', paste0(ct_in_xr_names[which_is_na], collapse='","'), '" is/are are NA\n'))
+					#next
+				}
 
 				# Align error (should be zero since just one marker)
 				align <- list(dist.error=setNames(dppt(xr_mat_sub[common_marker, ], ct_mat_sub_t[common_marker, ]), common_marker))
+				if(iter == 1){
+					#print(align)
+				}
 
-			}else if(nrow(xr_mat_sub) == 2){
-			
-				# Find which are NA
-				which_is_na <- is.na(xr_arr_n[ct_in_xr_names, 1, 1])
-
-				if(print.progress && iter %in% print.progress.iter) cat(paste0(': ', sum(ct_in_xr), ' common point(s) between CT and X-Ray sets for body \'', body_name, '\'\n'))
-				if(print.progress && iter %in% print.progress.iter && sum(which_is_na) > 0) cat(paste0('\t\t"', paste0(ct_in_xr_names[which_is_na], collapse='","'), '" is/are are NA\n'))
-				next
+				# Whether to replace virtual markers
+				replace_vm <- TRUE
 
 			}else{
 			
