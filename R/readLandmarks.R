@@ -1,7 +1,7 @@
-readLandmarks <- function(file, period.to.space = TRUE, row.names = 1, flip = FALSE){
+readLandmarks <- function(file, period.to.space = TRUE, row.names = 1, flip = FALSE, quote="\"", sep=',', header=TRUE){
 
 	# Read file
-	mat <- as.matrix(read.csv(file=file, row.names=row.names))
+	mat <- as.matrix(read.csv(file=file, row.names=row.names, quote=quote, sep=sep, header=header))
 
 	# If name in columns, convert to array
 	if(nchar(colnames(mat))[1] > 2){
