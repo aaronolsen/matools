@@ -1,4 +1,4 @@
-writeMotion <- function(x, file, digits = NULL, ...){
+writeMotion <- function(x, file, digits = NULL, na="NaN", ...){
 
 	# Create write mat
 	write_mat <- NULL
@@ -66,7 +66,7 @@ writeMotion <- function(x, file, digits = NULL, ...){
 	
 	# If only tmat set NAs to NaN so that the file is read properly by Maya?
 	#print(tmat_only)
-	if(tmat_only){ na_handling <- "NaN" }else{ na_handling <- "NA" }
+	#if(tmat_only){ na_handling <- "NaN" }else{ na_handling <- "NA" }
 
-	if(grepl('[.]csv$', file)) write.csv(x=write_mat, file=file, row.names=FALSE, na=na_handling, ...)
+	if(grepl('[.]csv$', file)) write.csv(x=write_mat, file=file, row.names=FALSE, na=na, ...)
 }
