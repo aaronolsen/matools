@@ -4,7 +4,7 @@ subsetRows <- function(motion, criteria, new = FALSE){
 
 	for(criteria_name in names(criteria)){
 	
-		if(name == 'row.index.input'){
+		if(criteria_name == 'row.index.input'){
 		
 			## Simple vector of numbers indicating rows to pull
 			# Check that indices do not exceed number of rows
