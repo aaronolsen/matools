@@ -93,12 +93,48 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 	col_names <- sort(colnames(read_matrix))
 	col_names <- col_names[!col_names == '']
 
+	## Correct for bug in XMALab export where there are two 'TY' columns
+	# Check if there are transformations
+	tmat_cols <- grepl(paste0(substr(tm.pattern, 1, nchar(tm.pattern)-1), '_[0-9]*Hz$'), colnames(read_matrix), ignore.case=TRUE)
+	if(sum(tmat_cols) > 0){
+		
+		# Find all TY columns
+		ty_cols_match <- which(grepl('_TY', colnames(read_matrix)[tmat_cols]))
+		
+		if(length(ty_cols_match) > 1){
+
+			# Look for consecutive 'TY' columns
+			for(i in 2:length(ty_cols_match)){
+				
+				# Replace second with 'TZ'
+				if(ty_cols_match[i-1] == ty_cols_match[i]-1){
+					colnames(read_matrix)[ty_cols_match[i]] <- gsub('_TY$', '_TZ', colnames(read_matrix)[ty_cols_match[i]])
+					colnames(read_matrix)[ty_cols_match[i]] <- gsub('_TY_', '_TZ_', colnames(read_matrix)[ty_cols_match[i]])
+				}
+			}
+		}
+		
+		col_names <- colnames(read_matrix)
+	}
+
 	# Sort column names
 	read_matrix <- read_matrix[, col_names]
 
 	# Check if there are transformations
 	tmat_cols <- grepl(tm.pattern, colnames(read_matrix), ignore.case=TRUE)
 
+	# Try looking for transformation columns with smoothing frequency
+	if(sum(tmat_cols) == 0){
+		
+		# Try
+		tmat_cols <- grepl(paste0(substr(tm.pattern, 1, nchar(tm.pattern)-1), '_[0-9]*Hz$'), colnames(read_matrix), ignore.case=TRUE)
+
+		# If found, remove smoothing frequency from column names
+		if(sum(tmat_cols) > 0){
+			colnames(read_matrix) <- gsub('_[0-9]*Hz$', '', colnames(read_matrix))
+		}
+	}
+	
 	# Check if there are xyz coordinates
 	xyz_cols <- grepl(xyz.pattern, colnames(read_matrix), ignore.case=TRUE)
 
@@ -143,6 +179,8 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 		
 		# Define column order
 		col_order <- c(sapply(toupper(body_names), 'paste0', c('_R11', '_R12', '_R13', '_01', '_R21', '_R22', '_R23', '_02', '_R31', '_R32', '_R33', '_03', '_TX', '_TY', '_TZ', '_1')))
+#		print(colnames(tmat_mat))
+		#print(col_order[!col_order %in% colnames(tmat_mat)])
 		
 		# Set column order
 		tmat_mat <- tmat_mat[, col_order]
