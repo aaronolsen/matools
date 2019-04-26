@@ -1,16 +1,33 @@
 subsetRows <- function(motion, criteria, new = FALSE){
+	
+	if(!is.list(criteria)) criteria <- list('row.index.input'=criteria)
 
 	for(criteria_name in names(criteria)){
 	
-		if(!criteria_name %in% names(motion)) stop("'", criteria_name, "' not found in motion property names.")
-	
-		#
-		if(length(criteria[[criteria_name]]) > 1){
-			select_which <- which(motion[[criteria_name]] %in% criteria[[criteria_name]])
-		}else{
-			select_which <- which(grepl(criteria[[criteria_name]], motion[[criteria_name]]))
-		}
+		if(name == 'row.index.input'){
 		
+			## Simple vector of numbers indicating rows to pull
+			# Check that indices do not exceed number of rows
+			if(max(criteria[[criteria_name]]) > motion$n.iter) stop(paste0("Input indices exceed the number of rows in motion object (", motion$n.iter, ")"))
+			
+			#
+			if(min(criteria[[criteria_name]]) < 1) stop(paste0("Input indices must be positive integers"))
+
+			# Set values
+			select_which <- criteria[[criteria_name]]
+
+		}else{
+
+			if(!criteria_name %in% names(motion)) stop("'", criteria_name, "' not found in motion property names.")
+	
+			#
+			if(length(criteria[[criteria_name]]) > 1){
+				select_which <- which(motion[[criteria_name]] %in% criteria[[criteria_name]])
+			}else{
+				select_which <- which(grepl(criteria[[criteria_name]], motion[[criteria_name]]))
+			}
+		}
+	
 		#
 		#initial_length <- length(criteria[[criteria_name]])
 		
