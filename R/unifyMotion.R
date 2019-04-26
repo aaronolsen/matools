@@ -323,12 +323,12 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 
 			}else{
 			
-				if(sum(virtual_markers %in% rownames(xr_mat_sub)) == nrow(xr_mat_sub)) warning(paste0("All ", nrow(xr_mat_sub), " markers associated with element '", body_name, "' are virtual markers."))
+				#if(sum(virtual_markers %in% rownames(xr_mat_sub)) == nrow(xr_mat_sub)) warning(paste0("All ", nrow(xr_mat_sub), " markers associated with element '", body_name, "' are virtual markers."))
 				
 				if(!body_name %in% names(unify_mode)) stop(paste0("Element '", body_name, "' is not included in unify.mode."))
 
-				#
-				if(sum(virtual_markers %in% rownames(xr_mat_sub)) >= 1 && unify_mode[body_name] == 1){
+				# At least 1 marker is a virtual marker, there are at least 2 non-virtual markers, and unify mode is 1
+				if(sum(virtual_markers %in% rownames(xr_mat_sub)) >= 1 && sum(virtual_markers %in% rownames(xr_mat_sub)) < nrow(xr_mat_sub) - 2 && unify_mode[body_name] == 1){
 
 					# Get name of VM
 					vm_names <- virtual_markers[virtual_markers %in% rownames(xr_mat_sub)]
