@@ -159,7 +159,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 			# CT marker names in Xray (beads and virtual points, does not include constraint planes/points)
 			ct_in_xr_names <- rownames(ct_mat_sub)[ct_in_xr]
 
-			# XROMM markers in CT
+			# Motion markers in CT
 			xr_mat_sub <- matrix(xr_arr_n[ct_in_xr_names, , iter], nrow=sum(ct_in_xr), ncol=ncol(xr_arr_n), 
 				dimnames=list(ct_in_xr_names, NULL))
 			
@@ -327,8 +327,8 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 				
 				if(!body_name %in% names(unify_mode)) stop(paste0("Element '", body_name, "' is not included in unify.mode."))
 
-				# At least 1 marker is a virtual marker, there are at least 2 non-virtual markers, and unify mode is 1
-				if(sum(virtual_markers %in% rownames(xr_mat_sub)) >= 1 && sum(virtual_markers %in% rownames(xr_mat_sub)) < nrow(xr_mat_sub) - 2 && unify_mode[body_name] == 1){
+				# At least 1 marker is a virtual marker, there are at least 1 non-virtual markers, and unify mode is 1
+				if(sum(virtual_markers %in% rownames(xr_mat_sub)) >= 1 && sum(virtual_markers %in% rownames(xr_mat_sub)) <= nrow(xr_mat_sub) - 1 && unify_mode[body_name] == 1){
 
 					# Get name of VM
 					vm_names <- virtual_markers[virtual_markers %in% rownames(xr_mat_sub)]
@@ -449,9 +449,9 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 
 				}else{
 
-					if(print.progress && iter %in% print.progress.iter) cat(': transform CT markers to align with XROMM markers\n')
+					if(print.progress && iter %in% print.progress.iter) cat(': transform CT markers to align with motion markers\n')
 
-					# Transform CT markers to correspond with XROMM markers
+					# Transform CT markers to correspond with motion markers
 					align <- bestAlign(xr_mat_sub, ct_mat_sub, sign=1)	#, m3=cs_ini[, , body_name]
 					ct_mat_sub_t <- align$mat
 
