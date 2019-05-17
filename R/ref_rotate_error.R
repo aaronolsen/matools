@@ -1,4 +1,5 @@
-ref_rotate_error <- function(p, ref.points, fit.points, center, axis = NULL){
+ref_rotate_error <- function(p, ref.points, fit.points, center, axis = NULL, 
+	ref.plane.point = NULL, fit.plane.point = NULL, fit.plane.normal = NULL){
 
 	# Create transformation matrix
 	tmat1 <- tmat2 <- tmat3 <- diag(4)
@@ -17,6 +18,11 @@ ref_rotate_error <- function(p, ref.points, fit.points, center, axis = NULL){
 
 	# Apply test transformation to reference points
 	ref.points <- applyTransform(ref.points, tmat)	
+
+	# Add projection of last ref point into plane as last (corresponding) fit point
+	if(!is.null(fit.plane.point)){
+		fit.points <- rbind(fit.points, pointPlaneProj_ma(ref.points[nrow(ref.points),], fit.plane.point, fit.plane.normal))
+	}
 
 	# Return error
 	return(sqrt(mean((ref.points - fit.points)^2)))
