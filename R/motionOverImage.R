@@ -1,7 +1,7 @@
 motionOverImage <- function(motion, images, camera, images.save = NULL, landmarks = NULL, 
 	meshes = NULL, frame.match = TRUE, scale = 1, animate.speed = 1, body.col = NULL, 
-	mesh.opacity = 1, xyz.radius = 1, xyz.opacity = 1, xyz.col = NULL, focal = 150, 
-	bg.col = 'white', image.opacity = 1){
+	mesh.opacity = 1, xyz.radius = 1, xyz.opacity = 1, xyz.col = NULL, focal = 150, cone = TRUE, 
+	bg.col = 'white', image.opacity = 1, close = TRUE){
 
 	if(!file.exists(images[1])) stop(paste0('Images input file/directory "', images[1],'" not found.'))
 	if(!file.exists(meshes[1])) stop(paste0('Meshes input file/directory "', meshes[1],'" not found.'))
@@ -164,13 +164,8 @@ motionOverImage <- function(motion, images, camera, images.save = NULL, landmark
 	svg.transform(tmarr=motion$tmat[,,,motion_frames_m], applyto=dimnames(motion$tmat)[[3]], time=motion$time[motion_frames_m])
 
 	# Add camera
-	svg.camera(camera=camera, focal=focal, image=image_files[image_frames_m], cone=TRUE, image.opacity=image.opacity, 
-		times=motion$time[motion_frames_m], set=TRUE, plane.dist=cam_dist)
+#	svg.camera(camera=camera, focal=focal, image=image_files[image_frames_m], cone=cone, image.opacity=image.opacity, 
+#		times=motion$time[motion_frames_m], set=TRUE, plane.dist=cam_dist)
 
-	if(!is.null(images.save)){
-		#svg.close(wait=TRUE)
-		svg.close(wait=FALSE)
-	}else{
-		svg.close(wait=FALSE)
-	}
+	if(close) svg.close()
 }
