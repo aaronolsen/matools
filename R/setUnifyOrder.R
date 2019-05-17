@@ -40,7 +40,7 @@ setUnifyOrder <- function(markers){
 	}else{
 		row_i <- 1
 	}
-
+	
 	# Constraint plane/points
 	if(!is.null(cpv_ids)){
 	
