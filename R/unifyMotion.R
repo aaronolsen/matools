@@ -1,8 +1,6 @@
-unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.iter = c(1), 
-	replace.xyz = TRUE, plot.diag = NULL, vp.use = TRUE, cp.use = TRUE, skip.bodies = c(),
-	near.bodies = NULL, unify.mode = NULL, cp.axis.with.vp = FALSE){
-
-	add.xr <- TRUE
+unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE, 
+	print.progress = TRUE, print.progress.iter = c(1), verbose = FALSE,
+	replace.xyz = TRUE, plot.diag = NULL, cp.use = TRUE, cp.axis.with.vp = FALSE){
 
 	# Set point array
 	if(is.list(motion)){
@@ -24,464 +22,265 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 
 	# Remove CT coordinates that are NA
 	ct_mat <- ct_mat[!is.na(ct_mat[, 1]), ]
+	
+	# Set CT markers
+	ct_markers <- rownames(ct_mat)
 
-	# Get body names
-	body_names <- rownames(ct_mat)
-	body_names <- gsub('_[A-Za-z0-9-]*', '', body_names)
-	body_names_ct_mat <- body_names
+	# Parse unify specifications and return in unification order
+	ulist <- parse_unify_spec(ulist=unify.spec, xr_arr=xr_arr, ct_mat=ct_mat, regexp=regexp, print.progress=print.progress)
 
-	#body_names <- gsub('[0-9]', '', body_names)
-	#for(i in 1:2) body_names <- gsub(paste0('_(ant|sup|mid|inf|pos)[_]?'), '_', body_names)
-	#body_names <- gsub('_$', '', body_names)
+	# Get element names from list
+	body_names <- names(ulist)
 
-	# Get virtual markers
-	body_names_vm <- rep(NA, length(body_names))
-	body_names_vm[grepl('-', body_names)] <- gsub('[A-Za-z]+-', '', body_names[grepl('-', body_names)])
-	body_names <- gsub('-[A-Za-z]+', '', body_names)
-	names(body_names_vm) <- body_names
+	# Print ulist
+	if(print.progress && verbose){
 
-	# If vp.use is FALSE, remove virtual markers
-	if(!vp.use){
-		body_names_ct_mat <- body_names_ct_mat[is.na(body_names_vm)]
-		ct_mat <- ct_mat[is.na(body_names_vm),]
-		body_names <- rownames(ct_mat)
-		body_names <- gsub('_[A-Za-z0-9-]*', '', body_names)
-		body_names_vm <- rep(NA, length(body_names))
-		names(body_names_vm) <- body_names
+		cat(paste0('Parse unify specifications\n'))
+
+		for(elem_name in names(ulist)){
+			cat(paste0('\t', elem_name, '\n'))
+			for(l_type in c('Align', 'Point', 'Transform')){
+				if(is.null(ulist[[elem_name]][[tolower(l_type)]])) next
+				cat(paste0('\t\t', l_type, ': ', paste0(unlist(ulist[[elem_name]][[tolower(l_type)]]), collapse=', '), '\n'))
+			}
+		}
 	}
-	
-	# Remove any skip body names
-	if(length(skip.bodies) > 0) body_names <- body_names[!body_names %in% skip.bodies]
-
-	# Set body associations
-	body_assoc <- body_names
-
-	# Get unique body names
-	body_names <- unique(body_names)
-
-	# Set unify mode
-	#	1: rotate about real points
-	#	2: best fit using real and virtual points
-	# Not fully implemented!
-	unify_mode <- setNames(as.list(rep(1, length(body_names))), body_names)
-	if(!is.null(unify.mode)) for(i in 1:length(unify.mode)) unify_mode[names(unify.mode)[i]] <- unify.mode[[i]]
-	
-	# Create transformation matrix names
-	tm_names <- body_names
 
 	# Create transformation matrix array
-	tm_arr <- array(NA, dim=c(4, 4, length(tm_names), dim(xr_arr)[3]), 
-		dimnames=list(NULL, NULL, tm_names, NULL))
+	tm_arr <- array(NA, dim=c(4, 4, length(body_names), dim(xr_arr)[3]), dimnames=list(NULL, NULL, body_names, NULL))
 
-	# Remove points not in input motion object and associated with any skipped bodies
-	ct_arr_pts <- rownames(ct_mat)
-	ct_arr_pts <- ct_arr_pts[(ct_arr_pts %in% dimnames(xr_arr)[[1]]) + (!body_names_ct_mat %in% skip.bodies) != 0]
-	#ct_arr_pts <- ct_arr_pts[ct_arr_pts %in% dimnames(xr_arr)[[1]]]
-
-	# Create array for transformed CT markers
-	ct_arr <- array(NA, dim=c(length(ct_arr_pts), dim(xr_arr)[2:3]), dimnames=list(ct_arr_pts, dimnames(xr_arr)[[3]]))
+	# Points in motion markers
+	ct_arr_pts <- ct_markers[ct_markers %in% dimnames(xr_arr)[[1]]]
 	
-	# Order in which to align body points - do bodies with virtual markers first
-	#body_order <- setNames(rep(2, length(body_names)), body_names)
-	#body_order[unique(names(body_names_vm[!is.na(body_names_vm)]))] <- 1
-	#body_order <- sort(body_order)
-	
-	# Set order in which to unify bodies
-	set_unify_order <- setUnifyOrder(rownames(ct_mat))
-	unify_order <- set_unify_order$order
-	unify_cp <- set_unify_order$cp
-
-#unify_order <- c('Urohyal', 'HyoidL')
+	# And point-to markers
+	point_to_pts <- c()
+	for(body_name in names(ulist)){
+		if(!is.null(ulist[[body_name]][['transform']])) point_to_pts <- c(point_to_pts, ulist[[body_name]][['transform']])
+	}
+	ct_arr_pts <- c(ct_arr_pts, point_to_pts)
+	ct_arr_pts <- sort(unique(ct_arr_pts))
 
 	# If non NULL create array to store results of constraint plane transformations
+	unify_cp <- NULL
 	if(cp.use && !is.null(unify_cp)){
 		col_names <- c('pre.min', 'pre.mean', 'pre.max', 'angle', 'post.min', 'post.mean', 'post.max')
 		cp_array <- array(NA, dim=c(length(unify_cp$id), length(col_names), n_iter), dimnames=list(NULL, col_names, NULL))
 	}
 
-	# Get names of virtual markers
-	virtual_markers <- rownames(ct_mat)[!is.na(body_names_vm)]
-
 	# Add virtual markers to xr_arr
-	xr_arr_n <- array(NA, dim=c(dim(xr_arr)[1]+length(virtual_markers), dim(xr_arr)[2], dim(xr_arr)[3]), 
-		dimnames=list(c(dimnames(xr_arr)[[1]], virtual_markers), dimnames(xr_arr)[[2]], dimnames(xr_arr)[[3]]))
+	xr_arr_n <- array(NA, dim=c(dim(xr_arr)[1]+length(ct_arr_pts), dim(xr_arr)[2], dim(xr_arr)[3]), 
+		dimnames=list(c(dimnames(xr_arr)[[1]], ct_arr_pts), dimnames(xr_arr)[[2]], dimnames(xr_arr)[[3]]))
 	xr_arr_n[dimnames(xr_arr)[[1]], , ] <- xr_arr
 
-	# Convert list elements into regular expression match
-	if(!is.null(near.bodies)){
-		for(i in 1:length(near.bodies)){
-			near.bodies[[i]] <- grepl(paste0('^', paste0(near.bodies[[i]], collapse='|'), '(_|-)'), dimnames(xr_arr)[[1]])
-		}
-	#	near.bodies <- setNames(unlist(near.bodies), names(near.bodies))
-	}
+	# Create unification error matrix
+	errors <- matrix(NA, nrow=dim(xr_arr_n)[3], ncol=length(body_names), dimnames=list(NULL, body_names))
 
-	# Unification errors
-	errors <- matrix(NA, nrow=dim(xr_arr_n)[3], ncol=length(unify_order), dimnames=list(NULL, unify_order))
-
-	# Iterate through each frame
+	## Iterate through each frame
 	min_iter <- 1
 	max_iter <- dim(xr_arr_n)[3]
 	for(iter in min_iter:max_iter){
 	
-		if(print.progress){
-			if(iter %in% print.progress.iter){
-				cat(paste0('Iteration: ', iter, '\n'))
-			}else if(iter == max(print.progress.iter) + 1){
-				#cat(paste0('Iterations: ', iter))
-			}else{
-				#cat(iter)
-			}
-		}
+		# Set print progress for iteration
+		if(print.progress && iter %in% print.progress.iter){ print_progress <- TRUE }else{ print_progress <- FALSE }
 
-		# Unify markers
-		for(body_name in unify_order){
+		# Print progress
+		if(print_progress) cat(paste0('Iteration: ', iter, '\n'))
 		
-			# Skip body
-			if(body_name %in% skip.bodies) next
+		# Unify markers
+		for(body_name in body_names){
+		
+			# Get non-NA motion markers
+			mo_markers <- dimnames(xr_arr_n)[[1]][!is.na(xr_arr_n[, 1, iter])]
 
 			#if(!body_name %in% c('SuspensoriumL', 'Neurocranium')) next
-			if(print.progress && iter %in% print.progress.iter) cat(paste0('\t', body_name))
-			
-			# Get all landmarks associated with body, including virtual point(s)
-			ct_row_sub <- which(grepl(paste0('^', body_name, '(_|-)'), rownames(ct_mat)))
-			ct_row_sub <- c(ct_row_sub, which(grepl(paste0('-', body_name), rownames(ct_mat))))
-			ct_mat_sub <- ct_mat[ct_row_sub, ]
-			#print(rownames(ct_mat)[grepl(paste0(body_name, '_|-'), rownames(ct_mat))])
-		
-			# Find which CT markers are in XR array
-			ct_in_xr <- rownames(ct_mat_sub) %in% dimnames(xr_arr_n)[[1]]
 
-			if(sum(ct_in_xr) == 0){
-				if(print.progress && iter %in% print.progress.iter) cat(paste0(': 0 common point(s) between CT and X-Ray sets for body \'', body_name, '\'\n'))
-				next
+			if(print_progress) cat(paste0('\t', body_name, '\n'))
+
+			# Find align markers in motion array
+			align_markers <- ulist[[body_name]][['align']][ulist[[body_name]][['align']] %in% mo_markers]
+
+			if(is.null(ulist[[body_name]][['point']])){
+				point_markers <- c()
+			}else{
+				point_markers <- unlist(ulist[[body_name]][['point']])
+			}
+			
+			if(length(align_markers) >= 2){
+
+				# Print progress
+				if(print_progress) cat(paste0('\t\tAlign CT markers using ', length(align_markers), ' motion markers: "', paste0(align_markers, collapse='", "'), '"\n'))
+
+				# Transform CT markers to correspond with motion markers
+				align <- bestAlign(xr_arr_n[align_markers,, iter], ct_mat[c(align_markers, point_markers),], sign=1)
 			}
 
-			# CT marker names in Xray (beads and virtual points, does not include constraint planes/points)
-			ct_in_xr_names <- rownames(ct_mat_sub)[ct_in_xr]
-
-			# Motion markers in CT
-			xr_mat_sub <- matrix(xr_arr_n[ct_in_xr_names, , iter], nrow=sum(ct_in_xr), ncol=ncol(xr_arr_n), 
-				dimnames=list(ct_in_xr_names, NULL))
+			if(is.null(ulist[[body_name]][['point']])){
 			
-			# Remove NA values
-			xr_mat_sub <- matrix(xr_mat_sub[!is.na(xr_mat_sub[, 1]), ], nrow=sum(!is.na(xr_mat_sub[, 1])), ncol=ncol(xr_mat_sub), 
-				dimnames=list(rownames(xr_mat_sub)[!is.na(xr_mat_sub[, 1])], NULL))
+				## Only use align markers
+				# Save error
+				errors[iter, body_name] <- mean(align$dist.errors)
 
-			# Translate bodies with single marker in common
-			replace_vm <- FALSE
-			if(nrow(xr_mat_sub) == 0){
-
-				if(print.progress && iter %in% print.progress.iter) cat(': all X-ray markers are NA\n')
-				
-				next
-
-			}else if(nrow(xr_mat_sub) >= 1 && nrow(xr_mat_sub) <= 2){
-			
-				# Get common marker
-				common_marker <- rownames(xr_mat_sub)
-
-				# Determine whether to do initial orientation
-				orient <- TRUE
-				if(!is.null(near.bodies) && sum(near.bodies[[body_name]]) == 0) orient <- FALSE
-
-				if(nrow(xr_mat_sub) == 1){
-
-					# Check that marker is not virtual
-					if(grepl('-', common_marker)){
-						if(print.progress && iter %in% print.progress.iter) cat(': single marker is virtual marker\n')
-						next
-					}
-
-					if(print.progress && iter %in% print.progress.iter){
-						if(orient){
-							cat(': orient body with CT alignment\n')
-						}else{
-							cat(': translate body with CT alignment\n')
-						}
-					}
-
-				}else{
-					if(print.progress && iter %in% print.progress.iter) cat(': align body with CT alignment using two markers\n')
-				}
-
-				if(orient){
-
-					# Do unification of set common points to approximately orient bodies with single X-ray marker
-					if(is.null(near.bodies) && is.null(near.bodies[[body_name]])){
-						m1 <- xr_arr[rownames(ct_mat)[rownames(ct_mat) %in% dimnames(xr_arr)[[1]]], , iter]
-					}else{
-						m1 <- xr_arr[near.bodies[[body_name]], , iter]
-					}
-
-					# Skip if all markers are NA
-					if(sum(is.na(m1)) == length(m1)) next
-
-					m2 <- ct_mat
-
-					if(print.progress && iter %in% print.progress.iter){
-						cat('\t\tSetting initial body orientation based on alignment with the following neighboring landmarks:\n\t\t\t')
-						cat(paste0(rownames(m1)[rownames(m1) %in% rownames(m2)], collapse='\n\t\t\t'))
-						cat('\n')
-					}
-			
-					align_ct_xr <- bestAlign(m1, m2, sign=1) #m3=m3, 
-					ct_mat_align <- align_ct_xr$mat
-
-					# Set initial transformation based on alignment
-					orient_tmat <- align_ct_xr$tmat
-
-				}else{
-
-					orient_tmat <- diag(4)
-					ct_mat_align <- ct_mat
-				}
-
-				if(nrow(xr_mat_sub) == 1){
-
-					if(print.progress && iter %in% print.progress.iter) cat('\t\tTranslate body based on single marker\n')
-
-					# Translate based on single marker
-					orient_tmat[1:3, 4] <- orient_tmat[1:3, 4] + (xr_mat_sub[common_marker, ] - ct_mat_align[common_marker, ])
-
-					# Translate CT markers based on common point with X-ray markers
-					ct_mat_sub_t <- ct_mat_align[rownames(ct_mat_sub), ] + matrix(xr_mat_sub[common_marker, ] - ct_mat_align[common_marker, ], nrow=nrow(ct_mat_sub), ncol=ncol(ct_mat_sub), byrow=TRUE)
-				
-					# Save transformation matrix
-					tm_arr[, , body_name, iter] <- orient_tmat
-
-				}else{
-				
-					if(print.progress && iter %in% print.progress.iter) cat('\t\tTransform body based on two markers\n')
-
-					# Find transformation based on two markers
-					best_align <- bestAlign(xr_mat_sub[common_marker, ], ct_mat[common_marker, ])
-					
-					# Get transformation 
-					two_marker_tmat <- best_align$tmat
-
-					# Create 3-point constellation to find rotation about axis between two points
-					ct_three_pt_set <- rbind(ct_mat[common_marker, ], vorthogonal_svg(ct_mat[common_marker[2], ]-ct_mat[common_marker[1], ]) + colMeans(ct_mat[common_marker, ]))
-					
-					# Transform 3 pt sets
-					orient_three_pt_set <- applyTransform(ct_three_pt_set, orient_tmat)
-					two_marker_three_pt_set <- applyTransform(ct_three_pt_set, two_marker_tmat)
-					
-					# Translate orient set to align centroids
-					orient_three_pt_set <- orient_three_pt_set + matrix(colMeans(two_marker_three_pt_set) - colMeans(orient_three_pt_set), 3, 3, byrow=TRUE)
-					
-					# Find rotation about axis between two points to bring
-					two_marker_axis <- uvector_ma(two_marker_three_pt_set[1,]-two_marker_three_pt_set[2,])
-					
-					# Find vectors for rotation
-					rot_cor <- colMeans(two_marker_three_pt_set[1:2,])
-					rot_vf <- orient_three_pt_set[3,] - rot_cor
-					rot_vi <- two_marker_three_pt_set[3,] - rot_cor
-					
-					# Find rotation
-					tmat1 <- tmat2 <- tmat3 <- diag(4)
-					tmat1[1:3, 4] <- rot_cor
-					tmat2[1:3, 1:3] <- tMatrixEP_ma(two_marker_axis, avec_ma(rot_vi, rot_vf, axis=two_marker_axis, about.axis=TRUE))
-					tmat3[1:3, 4] <- -rot_cor
-					rot_tmat <- tmat1 %*% tmat2 %*% tmat3
-					
-					if(iter == 1){
-						#print(best_align)
-						#print(applyTransform(to=ct_mat_sub, tmat=two_marker_tmat))
-					}
-
-					# Apply rotation
-					two_marker_tmat <- rot_tmat %*% two_marker_tmat
-					
-					# 
-					if(iter == 1){
-						#print(applyTransform(to=ct_mat_sub, tmat=two_marker_tmat))
-						#print(xr_mat_sub[common_marker, ])
-					}
-
-					# Transform CT markers
-					ct_mat_sub_t <- applyTransform(to=ct_mat_sub, tmat=two_marker_tmat)
-
-					# Save transformation matrix
-					tm_arr[, , body_name, iter] <- two_marker_tmat
-
-					# Find which are NA
-					#which_is_na <- is.na(xr_arr_n[ct_in_xr_names, 1, 1])
-
-					#if(print.progress && iter %in% print.progress.iter) cat(paste0(': ', nrow(xr_mat_sub), ' common point(s) between CT and X-Ray sets for body \'', body_name, '\'\n'))
-					#if(print.progress && iter %in% print.progress.iter && sum(which_is_na) > 0) cat(paste0('\t\t"', paste0(ct_in_xr_names[which_is_na], collapse='","'), '" is/are are NA\n'))
-					#next
-				}
-
-				# Align error (should be zero since just one marker)
-				align <- list(dist.error=setNames(dppt(xr_mat_sub[common_marker, ], ct_mat_sub_t[common_marker, ]), common_marker))
-				if(iter == 1){
-					#print(align)
-				}
-
-				# Whether to replace virtual markers
-				replace_vm <- TRUE
+				# Save transformation matrix
+				tm_arr[, , body_name, iter] <- align$tmat
 
 			}else{
-			
-				#if(sum(virtual_markers %in% rownames(xr_mat_sub)) == nrow(xr_mat_sub)) warning(paste0("All ", nrow(xr_mat_sub), " markers associated with element '", body_name, "' are virtual markers."))
+
+				## Point to markers
+				# Find point-to markers in both motion and CT
+				point_markers <- unlist(ulist[[body_name]][['point']])
+				point_markers <- point_markers[point_markers %in% mo_markers]
 				
-				if(!body_name %in% names(unify_mode)) stop(paste0("Element '", body_name, "' is not included in unify.mode."))
+				# Get plane markers
+				if(!is.null(ulist[[body_name]][['plane']])){
+					plane_markers <- unlist(ulist[[body_name]][['plane']])
+					plane_markers <- plane_markers[plane_markers %in% mo_markers]
+					marker_in_plane <- ulist[[body_name]][['plane']][[1]]
+				}else{
+					plane_markers <- c()
+					marker_in_plane <- c()
+				}
 
-				# At least 1 marker is a virtual marker, there are at least 1 non-virtual markers, and unify mode is 1
-				if(sum(virtual_markers %in% rownames(xr_mat_sub)) >= 1 && sum(virtual_markers %in% rownames(xr_mat_sub)) <= nrow(xr_mat_sub) - 1 && unify_mode[body_name] == 1){
+				# Single alignment marker
+				if(length(align_markers) == 1){
 
-					# Get name of VM
-					vm_names <- virtual_markers[virtual_markers %in% rownames(xr_mat_sub)]
+					# Create transformed CT mat
+					ct_mat_t <- ct_mat[c(align_markers, point_markers, marker_in_plane), ]
 
-					# Get xr mat without vm
-					xr_mat_sub_novm <- xr_mat_sub[!rownames(xr_mat_sub) %in% vm_names, ]
+					# Set real marker as center
+					center <- xr_arr_n[align_markers,, iter]
+
+					# Get translation vector based on single real marker
+					translate_tmat <- diag(4)
+					translate_tmat[1:3, 4] <- center - ct_mat[align_markers, ]
+
+					# Translate body points before rotating
+					ct_mat_t <- ct_mat_t + matrix(translate_tmat[1:3, 4], nrow(ct_mat_t), 3, byrow=TRUE)
+
+					if(!is.null(ulist[[body_name]][['plane']])){
 					
-					# One real marker, two or more virtual markers
-					if(nrow(xr_mat_sub) - sum(virtual_markers %in% rownames(xr_mat_sub)) == 1 && nrow(xr_mat_sub) >= 3){
-
-						# 
-						if(print.progress && iter %in% print.progress.iter){
-							cat(paste0(': transform CT markers from one real marker and optimize rotation to virtual marker(s): "', paste0(vm_names, collapse='", "'), '"\n'))
+						# Print progress
+						if(print_progress){
+							cat(paste0('\t\tAlign CT markers using 1 motion marker: "', align_markers, '"\n'))
+							cat(paste0('\t\tOptimize rotation using point marker: "', paste0(point_markers, collapse='", "'), '\n\t\tAnd marker "', marker_in_plane, '" in plane defined by markers: "', paste0(plane_markers, collapse='", "'), '"\n'))
 						}
-
-						# Get overlap
-						# Remove virtual markers and any markers not in Xray coordinates
-						novm_overlap <- rownames(ct_mat_sub)[!grepl('-', rownames(ct_mat_sub))]
-						novm_overlap <- novm_overlap[novm_overlap %in% rownames(xr_mat_sub)]
 						
-						# Set real marker as center
-						center <- xr_mat_sub_novm
-
-						# Get translation vector based on single real marker
-						translate_tmat <- diag(4)
-						translate_tmat[1:3, 4] <- center - ct_mat_sub[novm_overlap, ]
-
-						# Translate body points before rotating
-						ct_mat_sub_t <- ct_mat_sub + matrix(translate_tmat[1:3, 4], nrow(ct_mat_sub), 3, byrow=TRUE)
-
-						# Find common markers
-						common_markers <- rownames(ct_mat_sub_t)[rownames(ct_mat_sub_t) %in% rownames(xr_mat_sub)]
+						# Fit plane to points
+						fit_plane <- fitPlane(xr_arr_n[plane_markers,, iter])
 						
 						# Find initial error
+						rotate_error_init <- ref_rotate_error(c(0,0,0), center=center,
+							fit.plane.point=fit_plane$Q, fit.plane.normal=fit_plane$N, 
+							ref.points=ct_mat_t[c(point_markers, marker_in_plane),], fit.points=xr_arr_n[point_markers,, iter])
+						
+						# Optimize points by rotating 3 axes about real marker
+						rotation_fit <- tryCatch(
+							expr={
+								nlminb(start=c(0,0,0), objective=ref_rotate_error, lower=-2*pi, upper=2*pi, center=center, 
+									fit.plane.point=fit_plane$Q, fit.plane.normal=fit_plane$N, 
+									ref.points=ct_mat_t[c(point_markers, marker_in_plane),], fit.points=xr_arr_n[point_markers,, iter])
+							},
+							error=function(cond) {print(cond);return(NULL)},
+							warning=function(cond) {print(cond);return(NULL)}
+						)
+
+					}else{
+
+						# Print progress
+						if(print_progress){
+							cat(paste0('\t\tAlign CT markers using 1 motion marker: "', align_markers, '"\n'))
+							cat(paste0('\t\tOptimize rotation using point markers: "', paste0(point_markers, collapse='", "'), '"\n'))
+						}
+
+						# Find initial error
 						rotate_error_init <- ref_rotate_error(c(0,0,0), center=center,  
-							ref.points=ct_mat_sub_t[common_markers,], fit.points=xr_mat_sub[common_markers,])
+							ref.points=ct_mat_t[point_markers,], fit.points=xr_arr_n[point_markers,, iter])
 
 						# Optimize points by rotating 3 axes about real marker
 						rotation_fit <- tryCatch(
 							expr={
 								nlminb(start=c(0,0,0), objective=ref_rotate_error, lower=-2*pi, upper=2*pi, center=center, 
-									ref.points=ct_mat_sub_t[common_markers,], fit.points=xr_mat_sub[common_markers,])
+									ref.points=ct_mat_t[point_markers,], fit.points=xr_arr_n[point_markers,, iter])
 							},
 							error=function(cond) {print(cond);return(NULL)},
 							warning=function(cond) {print(cond);return(NULL)}
 						)
-
-						# Save transformation matrix using optimized angle, including initial transformation
-						tmat1 <- tmat2 <- tmat3 <- diag(4)
-						tmat1[1:3,4] <- center
-						tmat2[1:3,1:3] <- rotationMatrixZYX_ma(rotation_fit$par)
-						tmat3[1:3,4] <- -center
-						tm_arr[, , body_name, iter] <- tmat1 %*% tmat2 %*% tmat3 %*% translate_tmat
-
-					}else{
-
-						# Get initial alignment of CT markers and x-ray coordinates without virtual markers
-						align <- bestAlign(xr_mat_sub_novm, ct_mat_sub, sign=1)	#, m3=cs_ini[, , body_name]
-						ct_mat_sub_t <- align$mat
-	
-						# Get axis for refining rotation
-						# Center of rotation can be any point on line
-						if(nrow(xr_mat_sub_novm) == 2){
-							if(print.progress && iter %in% print.progress.iter){
-								cat(paste0(': transform CT markers from two real markers and optimize rotation about the axis defined by these two points\n\t\t\tusing virtual marker(s): "', paste0(vm_names, collapse='", "'), '"\n'))
-							}
-							raxis <- uvector_ma(xr_mat_sub_novm[2,]-xr_mat_sub_novm[1,])
-							center <- xr_mat_sub_novm[1,]
-						}else{
-							if(print.progress && iter %in% print.progress.iter){
-								cat(paste0(': transform CT markers from real markers and optimize rotation about axis fit to real points\n\t\t\tusing virtual marker(s): "', paste0(vm_names, collapse='", "'), '"\n'))
-							}
-							fit_line <- fitLine3D_ma(xr_mat_sub_novm)
-							raxis <- uvector_ma(fit_line$p2-fit_line$p1)
-							center <- fit_line$p1
-						}
-
-						# Find common markers
-						common_markers <- rownames(ct_mat_sub_t)[rownames(ct_mat_sub_t) %in% rownames(xr_mat_sub)]
-
-						# Find initial error
-						rotate_error_init <- ref_rotate_error(0, center=center, axis=raxis, 
-							ref.points=ct_mat_sub_t[common_markers,], fit.points=xr_mat_sub[common_markers,])
-
-						# Run optimization
-						rotation_fit <- tryCatch(
-							expr={
-								nlminb(start=0, objective=ref_rotate_error, lower=-2*pi, upper=2*pi, center=center, 
-									axis=raxis, ref.points=ct_mat_sub_t[common_markers,], fit.points=xr_mat_sub[common_markers,])
-							},
-							error=function(cond) {print(cond);return(NULL)},
-							warning=function(cond) {print(cond);return(NULL)}
-						)
-
-						# Save transformation matrix using optimized angle, including initial transformation
-						tmat1 <- tmat2 <- tmat3 <- diag(4)
-						tmat1[1:3,4] <- center
-						tmat2[1:3,1:3] <- tMatrixEP_ma(raxis, rotation_fit$par)
-						tmat3[1:3,4] <- -center
-						tm_arr[, , body_name, iter] <- tmat1 %*% tmat2 %*% tmat3 %*% align$tmat
 					}
 
-					# Apply transformation
-					ct_mat_sub_t <- applyTransform(ct_mat_sub, tm_arr[, , body_name, iter])
+					if(print_progress) cat(paste0('\t\tError prior to optimization: ', rotate_error_init, '; Error after optimization: ', rotation_fit$objective, '\n'))
 
-					# Save error
-					# Remove virtual markers from error calculation
-					common_markers <- common_markers[!grepl('-', common_markers)]
-					
-					align <- list('dist.errors'=dppt(ct_mat_sub_t[common_markers,,drop=FALSE], xr_mat_sub[common_markers,,drop=FALSE]))
+					# Save transformation matrix using optimized angle, including initial transformation
+					tmat1 <- tmat2 <- tmat3 <- diag(4)
+					tmat1[1:3,4] <- center
+					tmat2[1:3,1:3] <- rotationMatrixZYX_ma(rotation_fit$par)
+					tmat3[1:3,4] <- -center
+					tm_arr[, , body_name, iter] <- tmat1 %*% tmat2 %*% tmat3 %*% translate_tmat
 
-					errors[iter, body_name] <- mean(align$dist.errors)
-
-					#if(print.progress && iter %in% print.progress.iter) print(ct_mat_sub)
-
-					# Whether to try replacing virtual markers
-					replace_vm <- TRUE
+					# No alignment error because just translating based on one marker
+					align <- list(dist.error=setNames(0, align_markers))
 
 				}else{
 
-					if(print.progress && iter %in% print.progress.iter) cat(': transform CT markers to align with motion markers\n')
+					# Get axis for refining rotation
+					if(length(align_markers) == 2){
 
-					# Transform CT markers to correspond with motion markers
-					align <- bestAlign(xr_mat_sub, ct_mat_sub, sign=1)	#, m3=cs_ini[, , body_name]
-					ct_mat_sub_t <- align$mat
+						# Print progress
+						if(print_progress) cat(paste0('\t\tOptimize rotation about the axis defined by align markers to point to marker(s): "', paste0(point_markers, collapse='", "'), '"\n'))
 
-					if(print.progress && iter %in% print.progress.iter){
-						#print(xr_mat_sub)
-						#print(ct_mat_sub)
-						#print(applyTransform(ct_mat_sub, align$tmat))
+						# Set axis and center of rotation
+						
+						raxis <- uvector_ma(xr_arr_n[align_markers[2],, iter] - xr_arr_n[align_markers[1],, iter])
+						center <- xr_arr_n[align_markers[2],, iter]
+
+					}else{
+
+						# Print progress
+						if(print_progress) cat(paste0('\t\tOptimize rotation about axis fit to align markers to point to marker(s): "', paste0(point_markers, collapse='", "'), '"\n'))
+
+						# Set axis and center of rotation
+						fit_line <- fitLine3D_ma(align$mat[align_markers, ])
+						raxis <- uvector_ma(fit_line$p2-fit_line$p1)
+						center <- fit_line$p1
 					}
 
-					# Save error
-					errors[iter, body_name] <- mean(align$dist.errors)
+					# Create transformed CT mat
+					ct_mat_t <- align$mat
+
+					# Find initial error
+					rotate_error_init <- ref_rotate_error(0, center=center, axis=raxis, 
+						ref.points=ct_mat_t[point_markers,], fit.points=xr_arr_n[point_markers,, iter])
+
+					# Run optimization
+					rotation_fit <- tryCatch(
+						expr={
+							nlminb(start=0, objective=ref_rotate_error, lower=-2*pi, upper=2*pi, center=center, 
+								axis=raxis, ref.points=ct_mat_t[point_markers,], fit.points=xr_arr_n[point_markers,, iter])
+						},
+						error=function(cond) {print(cond);return(NULL)},
+						warning=function(cond) {print(cond);return(NULL)}
+					)
+
+					# Save transformation matrix using optimized angle, including initial transformation
+					tmat1 <- tmat2 <- tmat3 <- diag(4)
+					tmat1[1:3,4] <- center
+					tmat2[1:3,1:3] <- tMatrixEP_ma(raxis, rotation_fit$par)
+					tmat3[1:3,4] <- -center
+					tm_arr[, , body_name, iter] <- tmat1 %*% tmat2 %*% tmat3 %*% align$tmat
+				}
+			}
+
+			# Transform associated points
+			if(!is.null(ulist[[body_name]][['transform']])){
+			
+				# Transform markers
+				transform_markers <- ulist[[body_name]][['transform']]
 				
-					# Save transformation matrix
-					tm_arr[, , body_name, iter] <- align$tmat
-
-					# Whether to try replacing virtual markers
-					replace_vm <- TRUE
+				# Apply transformation
+				if(!is.na(tm_arr[1, 1, body_name, iter])){
+					xr_arr_n[transform_markers, , iter] <- applyTransform(to=ct_mat[transform_markers, ], tmat=tm_arr[, , body_name, iter])
 				}
 			}
-
-			# Replace any virtual markers with their initial coordinates (aligned according to the first body)
-			if(replace_vm){
-				if(any(virtual_markers %in% rownames(ct_mat_sub_t)) && any(virtual_markers %in% rownames(xr_mat_sub))){
-					vm_match <- virtual_markers[virtual_markers %in% rownames(ct_mat_sub_t)]
-					vm_match <- vm_match[vm_match %in% rownames(xr_mat_sub)]
-					ct_mat_sub_t[vm_match, ] <- xr_mat_sub[vm_match, ]
-				}
-			}
-
-			if(print.progress && iter %in% print.progress.iter && !is.null(align)){
+			
+			if(print_progress && !is.null(align)){
 				#print(align$dist.error)
 				#cat(paste0('\t\tError range: ', paste(round(range(align$dist.error), 3), collapse=', '), '\n'))
 				#cat(paste0('\t\t', paste0(rownames(align$dist.error), ': ', c(round(align$dist.error, 3)), collapse='\n\t\t'), '\n'))
@@ -491,10 +290,6 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 					cat(paste0('\t\tErrors:\n\t\t\t', paste0(names(align$dist.error), ': ', c(round(align$dist.error, 3)), collapse='\n\t\t\t'), '\n'))
 				}
 			}
-
-			#if(print.progress && iter %in% print.progress.iter) print(ct_mat_sub_t)
-			rows_add <- rownames(ct_mat_sub_t)[rownames(ct_mat_sub_t) %in% dimnames(ct_arr)[[1]]]
-			ct_arr[rows_add, , iter] <- ct_mat_sub_t[rows_add, ]
 
 			## Impose any constraint planes
 			# Check if body is child in a constraint plane set
@@ -506,7 +301,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 				# Get matching index
 				cp_match <- unify_cp$id == cp_ids[1]
 
-				if(print.progress && iter %in% print.progress.iter){
+				if(print_progress){
 					if(length(cp_ids) == 1){
 						cat(paste0('\t\tRefining motion using constraint plane "', cp_ids,'" and parent body "', unify_cp$parent[cp_match], '"\n'))
 					}else{
@@ -521,7 +316,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 				#print(iter)
 				#print(cpt$dist)
 
-				if(print.progress && iter %in% print.progress.iter){
+				if(print_progress){
 					cat(paste0('\t\tApplying transformation to:\n\t\t\t', paste0(rownames(ct_mat_sub_t), collapse='\n\t\t\t'), '\n'))
 				}
 
@@ -538,41 +333,14 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 				}
 
 				dist_errors <- distPointToPoint(xr_arr_n[beads_and_vp, , iter], ct_mat_sub_t[beads_and_vp, ])
-				if(print.progress && iter %in% print.progress.iter){
+				if(print_progress){
 					cat(paste0('\t\tErrors:\n\t\t\t', paste0(names(dist_errors), ': ', c(round(dist_errors, 3)), collapse='\n\t\t\t'), '\n'))
 				}
 
 				# Save new errors
 				errors[iter, body_name] <- mean(dist_errors, na.rm=TRUE)
 			}
-
-			# Add new positions of any virtual markers to xr_arr_n
-			if(sum(rownames(ct_mat_sub) %in% virtual_markers) > 0){
-
-				# Virtual markers in subset
-				virtual_markers_sub <- rownames(ct_mat_sub)[rownames(ct_mat_sub) %in% virtual_markers]
-				
-				# Remove virtual markers that are non-NA in xr_arr (previously positioned with first body)
-				virtual_markers_sub <- virtual_markers_sub[is.na(xr_arr_n[virtual_markers_sub, 1, iter])]
-
-				# Add new virtual markers
-				if(length(virtual_markers_sub) > 0){
-
-					if(print.progress && iter %in% print.progress.iter) cat(paste0('\t\tAdding virtual marker(s): ', paste0(virtual_markers_sub, collapse=', '), '\n'))
-
-					xr_arr_n[virtual_markers_sub, , iter] <- ct_mat_sub_t[virtual_markers_sub, ]
-				}
-			}
-
-			#print(xr_mat_sub);print(ct_mat_sub_t)
 		}
-		
-		#return(1)
-		
-		#break
-		#if(iter > 4) break
-		
-		#print(ct_arr[, , iter])
 	}
 
 	if(cp.use && !is.null(unify_cp) && print.progress){
@@ -600,37 +368,6 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 			}
 			cat(paste0('\t\tNumber of frames corrected: ', sum(!is.na(cp_array[i,'post.min',])), ' of ', n_iter, '\n'))
 		}
-	}
-
-	# If any values in CT array are NA, replace with X-ray markers that have the same name
-	ct_is_na <- is.na(ct_arr[, 1, 1])
-	if(sum(ct_is_na) > 0){
-		ct_na_in_xr <- names(ct_is_na)[ct_is_na][names(ct_is_na)[ct_is_na] %in% dimnames(xr_arr)[[1]]]
-		if(length(ct_na_in_xr) > 0) ct_arr[ct_na_in_xr, , ] <- xr_arr[ct_na_in_xr, , ]
-	}
-	
-	# Add X-ray points to animated CT points	
-	if(add.xr){
-	
-		# Get all marker names
-		unique_names <- unique(c(dimnames(ct_arr)[[1]],dimnames(xr_arr_n)[[1]]))
-		
-		#
-		ct_arr_new <- array(NA, dim=c(length(unique_names), dim(ct_arr)[2], dim(ct_arr)[3]),
-			dimnames=list(unique_names, NULL, NULL))
-
-		# 
-		if(replace.xyz){
-			ct_arr_new[dimnames(xr_arr_n)[[1]], , ] <- xr_arr_n
-			ct_arr_new[dimnames(ct_arr)[[1]], , ] <- ct_arr
-		}else{
-
-			xr_arr_n_non_na <- dimnames(xr_arr_n)[[1]][rowSums(is.na(xr_arr_n[, 1, ])) == 0]
-
-			ct_arr_new[dimnames(ct_arr)[[1]], , ] <- ct_arr
-			ct_arr_new[xr_arr_n_non_na, , ] <- xr_arr_n[xr_arr_n_non_na, , ]
-		}
-		ct_arr <- ct_arr_new
 	}
 
 	#
@@ -672,7 +409,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 
 	if(input_list){
 
-		motion[['xyz']] <- ct_arr
+		motion[['xyz']] <- xr_arr_n[ct_arr_pts,,]
 		motion[['tmat']] <- tm_arr
 
 		rlist <- list(
@@ -682,7 +419,7 @@ unifyMotion <- function(motion, xyz.mat, print.progress = TRUE, print.progress.i
 	}else{
 
 		rlist <- list(
-			'motion'=list('xyz'=ct_arr, 'tmat'=tm_arr),
+			'motion'=list('xyz'=xr_arr_n[ct_arr_pts,,], 'tmat'=tm_arr),
 			'error'=errors
 		)
 	}
