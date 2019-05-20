@@ -39,9 +39,16 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 
 		for(elem_name in names(ulist)){
 			cat(paste0('\t', elem_name, '\n'))
-			for(l_type in c('Align', 'Point', 'Transform')){
+			for(l_type in c('Align', 'Point', 'Plane', 'Transform')){
 				if(is.null(ulist[[elem_name]][[tolower(l_type)]])) next
-				cat(paste0('\t\t', l_type, ': ', paste0(unlist(ulist[[elem_name]][[tolower(l_type)]]), collapse=', '), '\n'))
+				if(l_type == 'Plane'){
+					other_name <- names(ulist[[elem_name]][['plane']])[names(ulist[[elem_name]][['plane']]) != elem_name]
+					cat(paste0('\t\t', l_type, '\n'))
+					cat(paste0('\t\t\tMarkers to move into plane (', elem_name, '): ', paste0(unlist(ulist[[elem_name]][[tolower(l_type)]][[elem_name]]), collapse=', '), '\n'))
+					cat(paste0('\t\t\tMarkers used to define plane (', other_name, '): ', paste0(unlist(ulist[[elem_name]][[tolower(l_type)]][[other_name]]), collapse=', '), '\n'))
+				}else{
+					cat(paste0('\t\t', l_type, ': ', paste0(unlist(ulist[[elem_name]][[tolower(l_type)]]), collapse=', '), '\n'))
+				}
 			}
 		}
 	}
@@ -88,7 +95,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 		
 		# Unify markers
 		for(body_name in body_names){
-		
+
 			# Get non-NA motion markers
 			mo_markers <- dimnames(xr_arr_n)[[1]][!is.na(xr_arr_n[, 1, iter])]
 
@@ -99,52 +106,66 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 			# Find align markers in motion array
 			align_markers <- ulist[[body_name]][['align']][ulist[[body_name]][['align']] %in% mo_markers]
 
-			if(is.null(ulist[[body_name]][['point']])){
-				point_markers <- c()
-			}else{
+			# Skip if no align markers
+			if(length(align_markers) == 0) next
+
+			# Get point markers
+			if(!is.null(ulist[[body_name]][['point']])){
+
+				# Find point-to markers in both motion and CT
 				point_markers <- unlist(ulist[[body_name]][['point']])
+				point_markers <- point_markers[point_markers %in% mo_markers]
+
+			}else{
+				point_markers <- c()
 			}
 			
+			# Get plane markers
+			if(!is.null(ulist[[body_name]][['plane']])){
+			
+				# Get name of plane body
+				plane_body <- names(ulist[[body_name]][['plane']])[names(ulist[[body_name]][['plane']]) != body_name]
+
+				# Get plane markers
+				plane_markers <- unlist(ulist[[body_name]][['plane']][[plane_body]])
+				plane_markers <- plane_markers[plane_markers %in% mo_markers]
+
+				# Fit plane to points
+				fit_plane <- fitPlane(xr_arr_n[plane_markers,, iter])
+
+				# Get markers to move into plane
+				markers_in_plane <- ulist[[body_name]][['plane']][[body_name]]
+
+				# Set plane marker indices
+				plane_marker_idx <- (length(point_markers)+1):(length(point_markers)+length(markers_in_plane))
+
+			}else{
+				plane_markers <- c()
+				markers_in_plane <- c()
+			}
+
 			if(length(align_markers) >= 2){
 
 				# Print progress
 				if(print_progress) cat(paste0('\t\tAlign CT markers using ', length(align_markers), ' motion markers: "', paste0(align_markers, collapse='", "'), '"\n'))
 
 				# Transform CT markers to correspond with motion markers
-				align <- bestAlign(xr_arr_n[align_markers,, iter], ct_mat[c(align_markers, point_markers),], sign=1)
+				align <- bestAlign(xr_arr_n[align_markers,, iter], ct_mat[c(align_markers, point_markers, markers_in_plane),], sign=1)
 			}
 
-			if(is.null(ulist[[body_name]][['point']])){
+			if(is.null(ulist[[body_name]][['point']]) && is.null(ulist[[body_name]][['plane']])){
 			
 				## Only use align markers
-				# Save error
-				errors[iter, body_name] <- mean(align$dist.errors)
-
 				# Save transformation matrix
 				tm_arr[, , body_name, iter] <- align$tmat
 
 			}else{
 
-				## Point to markers
-				# Find point-to markers in both motion and CT
-				point_markers <- unlist(ulist[[body_name]][['point']])
-				point_markers <- point_markers[point_markers %in% mo_markers]
-				
-				# Get plane markers
-				if(!is.null(ulist[[body_name]][['plane']])){
-					plane_markers <- unlist(ulist[[body_name]][['plane']])
-					plane_markers <- plane_markers[plane_markers %in% mo_markers]
-					marker_in_plane <- ulist[[body_name]][['plane']][[1]]
-				}else{
-					plane_markers <- c()
-					marker_in_plane <- c()
-				}
-
 				# Single alignment marker
 				if(length(align_markers) == 1){
 
 					# Create transformed CT mat
-					ct_mat_t <- ct_mat[c(align_markers, point_markers, marker_in_plane), ]
+					ct_mat_t <- ct_mat[c(align_markers, point_markers, markers_in_plane), , drop=FALSE]
 
 					# Set real marker as center
 					center <- xr_arr_n[align_markers,, iter]
@@ -161,23 +182,21 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 						# Print progress
 						if(print_progress){
 							cat(paste0('\t\tAlign CT markers using 1 motion marker: "', align_markers, '"\n'))
-							cat(paste0('\t\tOptimize rotation using point marker: "', paste0(point_markers, collapse='", "'), '\n\t\tAnd marker "', marker_in_plane, '" in plane defined by markers: "', paste0(plane_markers, collapse='", "'), '"\n'))
+							if(length(point_markers) > 0) cat(paste0('\t\tOptimize rotation using point-to markers: "', paste0(point_markers, collapse='", "'), '"\n'))
+							cat(paste0('\t\tPlacing marker(s) "', paste0(markers_in_plane, collapse='", "'), '" in plane...\n\t\t\tdefined by markers: "', paste0(plane_markers, collapse='", "'), '"\n'))
 						}
-						
-						# Fit plane to points
-						fit_plane <- fitPlane(xr_arr_n[plane_markers,, iter])
 						
 						# Find initial error
 						rotate_error_init <- ref_rotate_error(c(0,0,0), center=center,
-							fit.plane.point=fit_plane$Q, fit.plane.normal=fit_plane$N, 
-							ref.points=ct_mat_t[c(point_markers, marker_in_plane),], fit.points=xr_arr_n[point_markers,, iter])
+							fit.plane.point=fit_plane$Q, fit.plane.normal=fit_plane$N, plane.marker.idx=plane_marker_idx,
+							ref.points=ct_mat_t[c(point_markers, markers_in_plane),], fit.points=xr_arr_n[point_markers,, iter])
 						
 						# Optimize points by rotating 3 axes about real marker
 						rotation_fit <- tryCatch(
 							expr={
 								nlminb(start=c(0,0,0), objective=ref_rotate_error, lower=-2*pi, upper=2*pi, center=center, 
-									fit.plane.point=fit_plane$Q, fit.plane.normal=fit_plane$N, 
-									ref.points=ct_mat_t[c(point_markers, marker_in_plane),], fit.points=xr_arr_n[point_markers,, iter])
+									fit.plane.point=fit_plane$Q, fit.plane.normal=fit_plane$N, plane.marker.idx=plane_marker_idx, 
+									ref.points=ct_mat_t[c(point_markers, markers_in_plane),], fit.points=xr_arr_n[point_markers,, iter])
 							},
 							error=function(cond) {print(cond);return(NULL)},
 							warning=function(cond) {print(cond);return(NULL)}
@@ -215,26 +234,25 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 					tmat3[1:3,4] <- -center
 					tm_arr[, , body_name, iter] <- tmat1 %*% tmat2 %*% tmat3 %*% translate_tmat
 
-					# No alignment error because just translating based on one marker
-					align <- list(dist.error=setNames(0, align_markers))
-
 				}else{
+
+					# Print progress
+					if(print_progress){
+						cat(paste0('\t\tOptimize rotation about the axis defined by align markers: "', paste0(align_markers, collapse='", "'), '"\n'))
+						if(length(point_markers) > 0) cat(paste0('\t\tOptimize rotation using point-to marker(s): "', paste0(point_markers, collapse='", "'), '"\n'))
+					}
 
 					# Get axis for refining rotation
 					if(length(align_markers) == 2){
 
-						# Print progress
-						if(print_progress) cat(paste0('\t\tOptimize rotation about the axis defined by align markers to point to marker(s): "', paste0(point_markers, collapse='", "'), '"\n'))
-
 						# Set axis and center of rotation
-						
 						raxis <- uvector_ma(xr_arr_n[align_markers[2],, iter] - xr_arr_n[align_markers[1],, iter])
 						center <- xr_arr_n[align_markers[2],, iter]
 
 					}else{
 
 						# Print progress
-						if(print_progress) cat(paste0('\t\tOptimize rotation about axis fit to align markers to point to marker(s): "', paste0(point_markers, collapse='", "'), '"\n'))
+						#if(print_progress) cat(paste0('\t\tOptimize rotation about axis fit to align markers to point to marker(s): "', paste0(point_markers, collapse='", "'), '"\n'))
 
 						# Set axis and center of rotation
 						fit_line <- fitLine3D_ma(align$mat[align_markers, ])
@@ -246,18 +264,43 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 					ct_mat_t <- align$mat
 
 					# Find initial error
-					rotate_error_init <- ref_rotate_error(0, center=center, axis=raxis, 
-						ref.points=ct_mat_t[point_markers,], fit.points=xr_arr_n[point_markers,, iter])
+					if(!is.null(ulist[[body_name]][['plane']])){
 
-					# Run optimization
-					rotation_fit <- tryCatch(
-						expr={
-							nlminb(start=0, objective=ref_rotate_error, lower=-2*pi, upper=2*pi, center=center, 
-								axis=raxis, ref.points=ct_mat_t[point_markers,], fit.points=xr_arr_n[point_markers,, iter])
-						},
-						error=function(cond) {print(cond);return(NULL)},
-						warning=function(cond) {print(cond);return(NULL)}
-					)
+						# Print progress
+						if(print_progress) cat(paste0('\t\tPlacing marker(s) "', paste0(markers_in_plane, collapse='", "'), '" in plane...\n\t\t\tdefined by markers: "', paste0(plane_markers, collapse='", "'), '"\n'))
+
+						rotate_error_init <- ref_rotate_error(0, center=center, axis=raxis, 
+							fit.plane.point=fit_plane$Q, fit.plane.normal=fit_plane$N, plane.marker.idx=plane_marker_idx, 
+							ref.points=ct_mat_t[c(point_markers, markers_in_plane),], fit.points=xr_arr_n[point_markers,, iter])
+						
+						# Run optimization
+						rotation_fit <- tryCatch(
+							expr={
+								nlminb(start=0, objective=ref_rotate_error, lower=-2*pi, upper=2*pi, center=center, 
+									fit.plane.point=fit_plane$Q, fit.plane.normal=fit_plane$N, plane.marker.idx=plane_marker_idx, 
+									axis=raxis, ref.points=ct_mat_t[c(point_markers, markers_in_plane),], fit.points=xr_arr_n[point_markers,, iter])
+							},
+							error=function(cond) {print(cond);return(NULL)},
+							warning=function(cond) {print(cond);return(NULL)}
+						)
+
+					}else{
+
+						rotate_error_init <- ref_rotate_error(0, center=center, axis=raxis, 
+							ref.points=ct_mat_t[point_markers,], fit.points=xr_arr_n[point_markers,, iter])
+
+						# Run optimization
+						rotation_fit <- tryCatch(
+							expr={
+								nlminb(start=0, objective=ref_rotate_error, lower=-2*pi, upper=2*pi, center=center, 
+									axis=raxis, ref.points=ct_mat_t[point_markers,], fit.points=xr_arr_n[point_markers,, iter])
+							},
+							error=function(cond) {print(cond);return(NULL)},
+							warning=function(cond) {print(cond);return(NULL)}
+						)
+					}
+
+					if(print_progress) cat(paste0('\t\tError prior to optimization: ', rotate_error_init, '; Error after optimization: ', rotation_fit$objective, '\n'))
 
 					# Save transformation matrix using optimized angle, including initial transformation
 					tmat1 <- tmat2 <- tmat3 <- diag(4)
@@ -274,21 +317,29 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 				# Transform markers
 				transform_markers <- ulist[[body_name]][['transform']]
 				
+				if(print_progress){
+					cat(paste0('\t\tTransform markers: "', paste0(transform_markers, collapse='", "'), '"\n'))
+				}
+
 				# Apply transformation
 				if(!is.na(tm_arr[1, 1, body_name, iter])){
 					xr_arr_n[transform_markers, , iter] <- applyTransform(to=ct_mat[transform_markers, ], tmat=tm_arr[, , body_name, iter])
 				}
 			}
+
+
+			# Find error - after optimizations
+			align_markers_t <- applyTransform(to=ct_mat[align_markers, ], tmat=tm_arr[, , body_name, iter])
+			if(length(align_markers) == 1){
+				errors_by_row <- sqrt(sum((xr_arr_n[align_markers,, iter] - align_markers_t)^2))
+				errors[iter, body_name] <- errors_by_row
+			}else{
+				errors_by_row <- sqrt(rowSums((xr_arr_n[align_markers,, iter] - align_markers_t)^2))
+				errors[iter, body_name] <- mean(errors_by_row)
+			}
 			
-			if(print_progress && !is.null(align)){
-				#print(align$dist.error)
-				#cat(paste0('\t\tError range: ', paste(round(range(align$dist.error), 3), collapse=', '), '\n'))
-				#cat(paste0('\t\t', paste0(rownames(align$dist.error), ': ', c(round(align$dist.error, 3)), collapse='\n\t\t'), '\n'))
-				if(is.matrix(align$dist.error)){
-					cat(paste0('\t\tErrors:\n\t\t\t', paste0(rownames(align$dist.error), ': ', c(round(align$dist.error, 3)), collapse='\n\t\t\t'), '\n'))
-				}else{
-					cat(paste0('\t\tErrors:\n\t\t\t', paste0(names(align$dist.error), ': ', c(round(align$dist.error, 3)), collapse='\n\t\t\t'), '\n'))
-				}
+			if(print_progress){
+				cat(paste0('\t\tErrors:\n\t\t\t', paste0(align_markers, ': ', c(round(errors_by_row, 3)), collapse='\n\t\t\t'), '\n'))
 			}
 
 			## Impose any constraint planes
