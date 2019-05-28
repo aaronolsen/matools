@@ -30,7 +30,7 @@ readROISeries <- function(file, name.min.char = 5){
 	repl_char <- paste0(repl_char, collapse='|')
 	#repl_char <- paste0('\b|\f|\n|\t|\v|', paste0(repl_char, collapse='|'))
 	char_sub <- gsub(repl_char, '', read_lines)
-
+	
 	# Delete others using bytes
 	repl_char_useBytes <- c('\245L')
 	repl_char_useBytes <- paste0(repl_char_useBytes, collapse='|')
@@ -42,6 +42,8 @@ readROISeries <- function(file, name.min.char = 5){
 	# Split at 2DPos for names
 	pos2d_split <- strsplit(char_sub, '2D[ ]?Pos:')[[1]]
 	
+	print(pos2d_split)
+
 	# Find string of letters, numbers and underscore more than 4 characters long
 	greg_expr <- gregexpr(paste0('[A-Za-z0-9_-]+', '{', name.min.char, '}'), pos2d_split)
 
@@ -70,8 +72,8 @@ readROISeries <- function(file, name.min.char = 5){
 			if(grepl('^[0-9]+mm(0|1|2|x|y|z)?', pot_name, ignore.case=TRUE)) next
 			if(grepl('>[A-Za-z]{4}', pot_name, ignore.case=TRUE)) next
 
-			if(grepl('Value$', pot_name)) next
-			if(grepl('^JLN', pot_name)) next
+			if(grepl('Value$|^JLN|-3DPos', pot_name)) next
+			#if(grepl('^JLN', pot_name)) next
 
 			# Skip if in know roi file words
 			if(grepl('^(Value|NSNumberNSValue|NSString|NSObjectiROI|NSMutableArrayNSArray|3DPos|streamtype)$', pot_name)) next
