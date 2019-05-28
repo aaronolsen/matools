@@ -153,7 +153,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 				if(print_progress) cat(paste0('\t\tAlign CT markers using ', length(align_markers), ' motion markers: "', paste0(align_markers, collapse='", "'), '"\n'))
 				
 				# Transform CT markers to correspond with motion markers
-				align <- bestAlign(xr_arr_n[align_markers,, iter], ct_mat[all_markers,], sign=1)
+				align <- bestAlign(xr_arr_n[align_markers,, iter], ct_mat[c(align_markers, point_markers, markers_in_plane),], sign=1)
 			}
 
 			if(is.null(ulist[[body_name]][['point']]) && is.null(ulist[[body_name]][['plane']])){
@@ -168,7 +168,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 				if(length(align_markers) == 1){
 
 					# Create transformed CT mat
-					ct_mat_t <- ct_mat[all_markers, , drop=FALSE]
+					ct_mat_t <- ct_mat[c(align_markers, point_markers, markers_in_plane), , drop=FALSE]
 
 					# Set real marker as center
 					center <- xr_arr_n[align_markers,, iter]
