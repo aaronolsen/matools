@@ -50,6 +50,10 @@ bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
 	# USE ROWNAMES, IF GIVEN, TO REMOVE NON-CORRESPONDING POINTS
 	if(!is.null(rownames(m1)) && !is.null(rownames(m2))){
 
+		# Check for duplicate rownames
+		if(length(unique(rownames(m1))) < nrow(m1)) stop('Input parameter "m1" contains duplicate row names.')
+		if(length(unique(rownames(m2))) < nrow(m2)) stop('Input parameter "m2" contains duplicate row names.')
+		
 		m1o <- m1o[sort(rownames(m1o)), ]
 		m2o <- m2o[sort(rownames(m2o)), ]
 
@@ -57,8 +61,8 @@ bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
 		m1o <- m1o[!is.na(m1o[, 1]), ]
 		m2o <- m2o[!is.na(m2o[, 1]), ]
 
-		m1o[!rownames(m1o) %in% rownames(m2o), ] <- NA
-		m2o[!rownames(m2o) %in% rownames(m1o), ] <- NA
+		m1o[rownames(m1o)[!rownames(m1o) %in% rownames(m2o)], ] <- NA
+		m2o[rownames(m2o)[!rownames(m2o) %in% rownames(m1o)], ] <- NA
 
 	}else{
 
@@ -83,7 +87,7 @@ bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
 	# CENTER COMMON POINTS
 	m1oc <- scale(m1o, center=TRUE, scale=FALSE)
 	m2oc <- scale(m2o, center=TRUE, scale=FALSE)
-
+	
 	# Find best alignment with just two points
 	if(nrow(m1oc) == 2){
 		
