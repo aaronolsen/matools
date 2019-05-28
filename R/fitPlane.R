@@ -1,4 +1,4 @@
-fitPlane <- function(mat){
+fitPlane <- function(mat, scale = 1){
 	
 	# Center by centroid
 	centroid.align <- mat - matrix(colMeans(mat), nrow(mat), ncol(mat), byrow=TRUE)
@@ -29,6 +29,7 @@ fitPlane <- function(mat){
 		side_len[i] <- distPointToPoint(endpts[1,,i], endpts[2,,i])
 	}
 
+	side_len <- scale * side_len
 	half_side_len <- side_len / 2
 	corners_center <- colMeans(rbind(endpts[,,1], endpts[,,2], endpts[,,3]))
 	corners <- matrix(NA, 4, 3, byrow=TRUE)
