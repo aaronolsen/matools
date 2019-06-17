@@ -28,9 +28,11 @@ fitPlane <- function(mat, scale = 1){
 		# Get half of length
 		side_len[i] <- distPointToPoint(endpts[1,,i], endpts[2,,i])
 	}
+	
+	# Make scale a vector of length 2
+	if(length(scale) == 1) scale <- rep(scale, 2)
 
-	side_len <- scale * side_len
-	half_side_len <- side_len / 2
+	half_side_len <- (side_len[1:2] / 2) * scale
 	corners_center <- colMeans(rbind(endpts[,,1], endpts[,,2], endpts[,,3]))
 	corners <- matrix(NA, 4, 3, byrow=TRUE)
 	corners[1,] <- corners_center + half_side_len[1]*v[1,] + half_side_len[2]*v[2,]
