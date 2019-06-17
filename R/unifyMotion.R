@@ -105,7 +105,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 
 			# Find align markers in motion array
 			align_markers <- ulist[[body_name]][['align']][ulist[[body_name]][['align']] %in% mo_markers]
-
+			
 			# Skip if no align markers
 			if(length(align_markers) == 0) next
 
@@ -151,9 +151,9 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 
 				# Print progress
 				if(print_progress) cat(paste0('\t\tAlign CT markers using ', length(align_markers), ' motion markers: "', paste0(align_markers, collapse='", "'), '"\n'))
-				
+
 				# Transform CT markers to correspond with motion markers
-				align <- bestAlign(xr_arr_n[align_markers,, iter], ct_mat[c(align_markers, point_markers, markers_in_plane),], sign=1)
+				align <- bestAlign(xr_arr_n[align_markers,, iter], ct_mat[unique(c(align_markers, point_markers, markers_in_plane)),], sign=1)
 			}
 
 			if(length(point_markers) == 0 && (length(plane_markers) == 0 || length(markers_in_plane) == 0)){
@@ -386,7 +386,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 					beads_and_vp <- rownames(ct_mat_sub_t)[grepl('_bead|-', rownames(ct_mat_sub_t))]
 				}
 
-				dist_errors <- distPointToPoint(xr_arr_n[beads_and_vp, , iter], ct_mat_sub_t[beads_and_vp, ])
+				dist_errors <- dppt(xr_arr_n[beads_and_vp, , iter], ct_mat_sub_t[beads_and_vp, ])
 				if(print_progress){
 					cat(paste0('\t\tErrors:\n\t\t\t', paste0(names(dist_errors), ': ', c(round(dist_errors, 3)), collapse='\n\t\t\t'), '\n'))
 				}
