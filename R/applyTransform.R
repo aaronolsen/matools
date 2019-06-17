@@ -1,4 +1,4 @@
-applyTransform <- function(to, tmat, assoc = NULL, single.as = 'matrix'){
+applyTransform <- function(to, tmat, assoc = NULL, single.as = 'matrix', drop = FALSE){
 
 	# Default, set 'to' as points - will eventually work with various shapes so that many 
 	#	points do not have to be transformed to transform whole shape
@@ -41,7 +41,7 @@ applyTransform <- function(to, tmat, assoc = NULL, single.as = 'matrix'){
 		}else if(length(dim(pts)) == 4){
 
 			# Transformation array
-			for(i in 1:dim(pts)[3]) pts[,,i,] <- applyTransform(to=pts[,,i,], tmat=tmat)
+			for(i in 1:dim(pts)[3]) pts[,,i,] <- applyTransform(to=pts[,,i,], tmat=tmat, drop=drop)
 
 			return(pts)
 
@@ -55,7 +55,7 @@ applyTransform <- function(to, tmat, assoc = NULL, single.as = 'matrix'){
 		parr <- pcoor %*% t(tmat)
 
 		# Remove 1s row and transpose
-		return(parr[, 1:3])
+		return(parr[, 1:3, drop=drop])
 
 	# Transformation 3-d array
 	}else if(length(dim(tmat)) == 3){
@@ -121,7 +121,7 @@ applyTransform <- function(to, tmat, assoc = NULL, single.as = 'matrix'){
 		
 			# 
 			n_iter <- dim(tmat)[3]
-			for(iter in 1:n_iter) pts[, , iter] <- applyTransform(pts[, , iter], tmat[, , iter])
+			for(iter in 1:n_iter) pts[, , iter] <- applyTransform(pts[, , iter], tmat[, , iter], drop=drop)
 		
 			return(pts)
 
@@ -198,7 +198,7 @@ applyTransform <- function(to, tmat, assoc = NULL, single.as = 'matrix'){
 				if(length(body_assoc) == 0) next
 
 				# Transform
-				parr[body_assoc, , ] <- applyTransform(parr[body_assoc, , ], tmat[, , body, ])
+				parr[body_assoc, , ] <- applyTransform(parr[body_assoc, , ], tmat[, , body, ], drop=drop)
 			}
 			
 			return(parr)
