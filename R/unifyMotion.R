@@ -156,7 +156,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 				align <- bestAlign(xr_arr_n[align_markers,, iter], ct_mat[c(align_markers, point_markers, markers_in_plane),], sign=1)
 			}
 
-			if(is.null(ulist[[body_name]][['point']]) && is.null(ulist[[body_name]][['plane']])){
+			if(length(point_markers) == 0 && (length(plane_markers) == 0 || length(markers_in_plane) == 0)){
 			
 				## Only use align markers
 				# Save transformation matrix
