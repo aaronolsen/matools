@@ -63,28 +63,33 @@ interpolateMotion <- function(motion, fit.win.max = 50, fit.win.min = 1, int.win
 
 				# Get indices of non-NA values
 				non_NA_idx <- which(!is.na(xyz[i, 1, ]))
+				
+				# Length of non NA
+				non_NA_len <- tail(non_NA_idx, 1)-non_NA_idx[1]
 
 				# Get indices of NA values
 				NA_idx <- which(is.na(xyz[i, 1, ]))
 				
 				# Make sure indices don't exceed non-NA indices (ie no extrapolation beyond sequence)
 				NA_idx <- NA_idx[NA_idx < tail(non_NA_idx, 1)]
+				NA_idx <- NA_idx[NA_idx > non_NA_idx[1]]
 
 				# Set span
-				span <- round((tail(span.factor,1)/(1.5*length(non_NA_idx))) + 0.01, 3)
+				span <- round((tail(span.factor,1)/(0.5*non_NA_len)) + 0.01, 3)
 
 				# For each dimension
 				for(j in 1:dim(xyz)[2]){
 				
 					# Create dataframe
 					data_frame <- data.frame(y=xyz[i, j, non_NA_idx[1]:tail(non_NA_idx, 1)], x=non_NA_idx[1]:tail(non_NA_idx, 1))
-				
+					
 					# Fit loess (higher span value corresponds to lower parameter fit)
 					loess_main <- suppressWarnings(loess(y ~ x, data=data_frame, span=span))
 				
 					# Create smoothed points
-					smoothed <- predict(loess_main, data_frame)
-				
+					smoothed <- rep(NA, non_NA_len)
+					smoothed[non_NA_idx[1]:tail(non_NA_idx, 1)] <- predict(loess_main, data_frame)
+					
 					# Save which indices were interpolated
 					if(j == 1) inter_indices[[i]][[1]] <- NA_idx
 				
