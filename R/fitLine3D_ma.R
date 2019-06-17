@@ -8,7 +8,7 @@ fitLine3D_ma <- function(X, margin=0.2){
 	pca <- prcomp(X)
 	t <- c(min(pca$x[, 1])-margin, max(pca$x[, 1])+margin) 
 	endpts <- rbind(meanX + t[1]*pca$rotation[, 1], meanX + t[2]*pca$rotation[, 1])
-	
+
 	list(
 		'v'=uvector_ma(endpts[2,]-endpts[1,]),
 		'p1'=endpts[1,],

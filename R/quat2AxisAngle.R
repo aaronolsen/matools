@@ -3,7 +3,7 @@ quat2AxisAngle <- function(q){
 	## Converts quaternion to axis of rotation and angle
 	
 	# Make sure q is normalized
-	q <- uvector(q)
+	q <- uvector_ma(q)
 
 	# Get angle
 	angle <- 2 * acos(q[4])

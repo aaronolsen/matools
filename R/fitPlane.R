@@ -23,10 +23,10 @@ fitPlane <- function(mat, scale = 1){
 		endpts[2,,i] <- meanX + t[2]*pca$rotation[, i]
 
 		# Get vector corresponding to axis
-		v[i, ] <- uvector(endpts[2,,i]-endpts[1,,i])
+		v[i, ] <- uvector_ma(endpts[2,,i]-endpts[1,,i])
 
 		# Get half of length
-		side_len[i] <- distPointToPoint(endpts[1,,i], endpts[2,,i])
+		side_len[i] <- dppt(endpts[1,,i], endpts[2,,i])
 	}
 	
 	# Make scale a vector of length 2

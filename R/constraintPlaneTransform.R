@@ -30,7 +30,7 @@ constraintPlaneTransform <- function(xyz, ids, child.type, axis.with.vp = TRUE){
 			cpp_body_xyz <- rownames(xyz)[grepl(paste0(cpp_body, '(_|-)'), rownames(xyz))]
 
 			# Get plane normal vector
-			plane_n <- uvector(cprod(xyz[cpv[2],]-xyz[cpv[1],], xyz[cpv[3],]-xyz[cpv[1],]))
+			plane_n <- uvector_ma(cprod(xyz[cpv[2],]-xyz[cpv[1],], xyz[cpv[3],]-xyz[cpv[1],]))
 
 			# Find distance from points to plane (positive means on the side of the normal vector)
 			dptp <- distPointToPlane(xyz[cpp,], n=plane_n, q=xyz[cpv[1],])
@@ -75,7 +75,7 @@ constraintPlaneTransform <- function(xyz, ids, child.type, axis.with.vp = TRUE){
 				if(sum(!is.na(cpp_max_proj[,1])) == 0) next
 
 				# Select point closest to non-transformed (should be pretty close)
-				cpp_max_proj <- cpp_max_proj[which.min(distPointToPoint(cpp_max_proj, cpp_max)),]
+				cpp_max_proj <- cpp_max_proj[which.min(dppt(cpp_max_proj, cpp_max)),]
 
 				# Get angle
 				try_angles[j] <- avec(cpp_max-tmat_cor, cpp_max_proj-tmat_cor, axis=tmat_aor$v, about.axis=TRUE)

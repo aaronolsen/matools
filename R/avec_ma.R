@@ -5,8 +5,8 @@ avec_ma <- function(u, v, axis=NULL, about.axis=FALSE, max.pi=FALSE){
 	if(sqrt(sum(u * u)) == 0) stop("Input vector 'u' is zero-length")
 	if(sqrt(sum(v * v)) == 0) stop("Input vector 'v' is zero-length")
 
-	uu <- uvector_svg(u)
-	vu <- uvector_svg(v)
+	uu <- uvector_ma(u)
+	vu <- uvector_ma(v)
 	
 	c <- sum(uu*vu) / sqrt(sum(uu*uu)) * sqrt(sum(vu*vu))
 
@@ -33,7 +33,7 @@ avec_ma <- function(u, v, axis=NULL, about.axis=FALSE, max.pi=FALSE){
 			stop("Input vector 'axis' is zero-length")
 		}
 
-		axis <- uvector_svg(axis)
+		axis <- uvector_ma(axis)
 		
 		if(about.axis){
 
@@ -48,7 +48,7 @@ avec_ma <- function(u, v, axis=NULL, about.axis=FALSE, max.pi=FALSE){
 		}else{
 
 			# DETERMINE DIRECTION USING AXIS
-			if(dppt_svg(uvector_svg(cprod_svg(uu, vu)), axis) < dppt_svg(uvector_svg(cprod_svg(vu, uu)), axis)){
+			if(dppt(uvector_ma(cprod_ma(uu, vu)), axis) < dppt(uvector_ma(cprod_ma(vu, uu)), axis)){
 				return(-angle)
 			}else{
 				return(angle)
@@ -59,11 +59,11 @@ avec_ma <- function(u, v, axis=NULL, about.axis=FALSE, max.pi=FALSE){
 		# DETERMINE DIRECTION USING CROSS-PRODUCT VECTOR AND EULER 
 		if(abs(angle) > 0){
 		
-			cprod_uv <- cprod_svg(uu, vu)
+			cprod_uv <- cprod_ma(uu, vu)
 			um <- sqrt(sum(u^2))
 			vm <- sqrt(sum(u^2))
 			
-			if(dppt_svg((uu %*% tMatrixEP(cprod_uv, angle))*vm, v) <= dppt_svg((uu %*% tMatrixEP(cprod_uv, -angle))*vm, v)){
+			if(dppt((uu %*% tMatrixEP(cprod_uv, angle))*vm, v) <= dppt((uu %*% tMatrixEP(cprod_uv, -angle))*vm, v)){
 				return(angle)
 			}else{
 				return(-angle)
