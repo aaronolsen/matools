@@ -5,13 +5,28 @@ relativeMotion <- function(motion, fixed, ref.iter = 1){
 	#	future: xyz coordinates (matrix)
 	#	future: body name (using tmat)
 
+	# Non motion object input
+	#non_motion_input <- FALSE
+	#if(!is.list(motion)){
+	#
+	#	motion <- list('n_iter'=dim(motion)[length(dim(motion))])
+	#
+	#	if(length(dim(motion)) == 3){
+	#		motion$xyz <- motion
+	#	}else{
+	#		motion$tmat <- motion
+	#	}
+	#	
+	#	non_motion_input <- TRUE
+	#}
+
 	# Get number of iterations
 	n_iter <- motion$n.iter
 	
 	# Check if there are transformations and xyz
 	has_tmat <- ifelse(is.null(motion$tmat), FALSE, TRUE)
 	has_xyz <- ifelse(is.null(motion$xyz), FALSE, TRUE)
-
+	
 	# Get input type
 	if(is.vector(fixed) && length(fixed) == 1){
 		fixed_type <- 'body_name'
