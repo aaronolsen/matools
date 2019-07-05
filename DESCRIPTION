@@ -1,10 +1,10 @@
 Package: matools
-Date: 2017-03-17
+Date: 2019-07-05
 Title: Motion analysis tools
 Description: Functions for motion analysis.
 Version: 1.0
-Depends: R (>= 2.11.0)
-Imports: grDevices, graphics, stats, utils, svgViewR (>= 1.0.1)
+Depends: R (>= 2.11.0), svgViewR (>= 1.2)
+Imports: grDevices, graphics, stats, utils
 Author: Aaron Olsen
 Maintainer: Aaron Olsen <aarolsen@gmail.com>
 Repository: CRAN
