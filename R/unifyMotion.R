@@ -157,8 +157,11 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 			}
 
 			if(length(point_markers) == 0 && (length(plane_markers) == 0 || length(markers_in_plane) == 0)){
-			
+
 				## Only use align markers
+				
+				if(length(align_markers) == 1) next
+
 				# Save transformation matrix
 				tm_arr[, , body_name, iter] <- align$tmat
 
@@ -510,9 +513,9 @@ print.unify_errors <- function(x, n=5){
 	x_stats <- matrix(NA, 3, ncol(x), dimnames=list(c('min', 'max', 'mean'), colnames(x)))
 	for(i in 1:ncol(x)){
 		if(!any(!is.na(x[, i]))) next
-		x_stats['min', i] <- min(x[, i], na.rm=TRUE)
-		x_stats['max', i] <- max(x[, i], na.rm=TRUE)
-		x_stats['mean', i] <- mean(x[, i], na.rm=TRUE)
+		x_stats['min', i] <- round(min(x[, i], na.rm=TRUE), 5)
+		x_stats['max', i] <- round(max(x[, i], na.rm=TRUE), 5)
+		x_stats['mean', i] <- round(mean(x[, i], na.rm=TRUE), 5)
 	}
 
 	xlist_to_df <- as.data.frame(x_stats)
