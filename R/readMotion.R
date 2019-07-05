@@ -21,7 +21,9 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 
 			# Add rows to all motion object
 			all_motion <- addMotion(read_motion, all_motion)
+			#print(all_motion$n.iter)
 		}
+
 	
 		return(all_motion)
 
