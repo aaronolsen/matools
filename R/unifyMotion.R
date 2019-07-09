@@ -1,6 +1,6 @@
 unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE, 
 	print.progress = FALSE, print.progress.iter = c(1), verbose = FALSE,
-	replace.xyz = TRUE, plot.diag = NULL, cp.use = TRUE, cp.axis.with.vp = FALSE){
+	replace.xyz = FALSE, plot.diag = NULL, cp.use = TRUE, cp.axis.with.vp = FALSE){
 
 	# Set point array
 	if(is.list(motion)){
@@ -466,7 +466,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 
 	if(input_list){
 
-		motion[['xyz']] <- xr_arr_n[ct_arr_pts,,]
+		if(replace.xyz) motion[['xyz']] <- xr_arr_n[ct_arr_pts,,]
 		motion[['tmat']] <- tm_arr
 
 		rlist <- list(
