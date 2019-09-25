@@ -54,6 +54,22 @@ bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
 		if(length(unique(rownames(m1))) < nrow(m1)) stop('Input parameter "m1" contains duplicate row names.')
 		if(length(unique(rownames(m2))) < nrow(m2)) stop('Input parameter "m2" contains duplicate row names.')
 		
+		# If empty row names, assume same row names as other matrix
+		if(any(rownames(m1o) == "")){
+			if(!any(rownames(m2o) == "") && nrow(m1o) == nrow(m2o)){
+				rownames(m1o) <- rownames(m2o)
+			}else{
+				stop('Input parameter "m1" contains empty row names and number of rows do not match between m1o and m2o.')
+			}
+		}
+		if(any(rownames(m2o) == "")){
+			if(nrow(m1o) == nrow(m2o)){
+				rownames(m2o) <- rownames(m1o)
+			}else{
+				stop('Input parameter "m2" contains empty row names and number of rows do not match between m1o and m2o.')
+			}
+		}
+		
 		m1o <- m1o[sort(rownames(m1o)), ]
 		m2o <- m2o[sort(rownames(m2o)), ]
 
