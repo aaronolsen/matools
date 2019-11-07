@@ -12,7 +12,7 @@ procrustes <- function(x, scale=TRUE, rotate=TRUE, scale.to.mean.Csize=FALSE){
 		x[,, i] <- x[,, i] - matrix(apply(x[all_common,, i], 2, mean, na.rm=TRUE), k, m, byrow=TRUE)
 	}
 	
-	Csize <- setNames(centroidSize(x[all_common, , ]), dimnames(x)[[3]])
+	Csize <- setNames(centroidSize_ma(x[all_common, , ]), dimnames(x)[[3]])
 	
 	# SCALE
 	if(scale){
