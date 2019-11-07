@@ -1,9 +1,9 @@
 relativeMotion <- function(motion, fixed, ref.iter = 1){
 
-	# fixed can be:
-	#	names of xyz points
-	#	future: xyz coordinates (matrix)
-	#	future: body name (using tmat)
+	## Add option for multiple input types
+	# fixed as a list with one element being tmat and the other being xyz
+	# just call relativeMotion twice and recycle the motion object between calls
+	# That way the tmats and xyz coordinates will correspond
 
 	# Non motion object input
 	#non_motion_input <- FALSE
