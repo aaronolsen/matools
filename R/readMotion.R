@@ -141,7 +141,16 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 	xyz_cols <- grepl(xyz.pattern, colnames(read_matrix), ignore.case=TRUE)
 
 	# Check if any Z columns
-	z_cols <- grepl('[_|.](Z)$', colnames(read_matrix), ignore.case=TRUE)
+	if(xyz.pattern == '[_|.](|X|Y|Z)$'){
+		z_cols <- grepl('[_|.](Z)$', colnames(read_matrix), ignore.case=TRUE)
+		if(sum(z_cols) == 0){
+			has_z_cols <- FALSE
+		}else{
+			has_z_cols <- TRUE
+		}
+	}else{
+		has_z_cols <- TRUE
+	}
 
 	# Check for additional info columns
 	info_cols <- tmat_cols+xyz_cols == 0
@@ -149,7 +158,7 @@ readMotion <- function(file, nrows = -1, vectors.as = c('list', 'data.frame'), v
 	# Set logicals
 	has_tmat <- ifelse(sum(tmat_cols) > 0, TRUE, FALSE)
 	has_xyz <- ifelse(sum(xyz_cols) > 0, TRUE, FALSE)
-	if(has_xyz && sum(z_cols) == 0){
+	if(has_xyz && !has_z_cols){
 		has_xyz <- FALSE
 		has_xy <- TRUE
 	}else{
