@@ -1,7 +1,24 @@
 readLandmarks <- function(file, period.to.space = TRUE, row.names = 1, flip = FALSE, quote="\"", sep=',', header=TRUE){
 
+	if(!file.exists(file)) stop(paste0("File '", file, "' not found."))
+
 	# Read file
-	mat <- as.matrix(read.csv(file=file, row.names=row.names, quote=quote, sep=sep, header=header))
+	mat <- suppressWarnings(as.matrix(read.csv(file=file, row.names=row.names, quote=quote, sep=sep, header=header)))
+
+	# Single row of points, reformat as matrix
+	if(dim(mat)[1] == 1){
+		
+		# Read file
+		mat <- suppressWarnings(as.matrix(read.csv(file=file, row.names=NULL, quote=quote, sep=sep, header=header)))
+
+		# Get landmark names
+		sp_names <- unique(gsub('[_|.](|x|y|z)$', '', colnames(mat), ignore.case=TRUE))
+		
+		# Create matrix
+		as_mat <- matrix(mat, nrow=dim(mat)[2]/3, ncol=3, dimnames=list(sp_names, NULL), byrow=TRUE)
+		
+		return(as_mat)
+	}
 
 	# If name in columns, convert to array
 	if(nchar(colnames(mat))[1] > 2){
