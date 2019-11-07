@@ -1,6 +1,200 @@
-bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
+bestAlign <- function(m1, m2, m3 = NULL, sign = NULL, pc.sub=c(0.1, 10000), pt.sub=c(0.5, 500), 
+	pt.align = TRUE, print.progress = FALSE, as.cloud = FALSE, reflect = FALSE){
 
 	## See fit_joint_model for revised svd code that fixes bug-- I think I've updated this, based on procAlign
+
+	if(as.cloud){
+		m1 <- list('vertices'=m1)
+		m2 <- list('vertices'=m2)
+	}
+
+	## Mesh alignment
+	# Check if m1 is mesh/object
+	if(is.list(m1)){
+
+		# Print progress
+		if(print.progress) cat(paste0('bestAlign()\n'))
+	
+		# Check n parameters for consistency
+		if(length(pc.sub) == 1){
+			if(pc.sub < 0){
+				pc.sub <- c(-1, -1)
+			}else if(pc.sub > 0 && pc.sub < 1){
+				pc.sub <- c(pc.sub, 10000)
+			}else{
+				pc.sub <- c(0.5, pc.sub)
+			}
+		}
+		if(length(pt.sub) == 1){
+			if(pt.sub < 0){
+				pt.sub <- c(-1, -1)
+			}else if(pt.sub > 0 && pt.sub < 1){
+				pt.sub <- c(pt.sub, 500)
+			}else{
+				pt.sub <- c(0.05, pt.sub)
+			}
+		}
+		
+		#	pt.sub: The number of points subsampled from all vertices
+
+		# Reflect, if true
+		if(reflect) m2$vertices <- mtransform(m2$vertices, -diag(4))
+
+		# Do an initial alignment using PC axes
+		# Get points from vertices		
+		m1_pts <- m1$vertices
+		m2_pts <- m2$vertices
+		
+		# Get subset for PCA
+		if(pc.sub[1] > -1){
+			m1_pc_sub <- m1_pts[seq(1, nrow(m1_pts), length=min(nrow(m1_pts), round(pc.sub[1]*nrow(m1_pts)), pc.sub[2])), ]
+			m2_pc_sub <- m2_pts[seq(1, nrow(m2_pts), length=min(nrow(m2_pts), round(pc.sub[1]*nrow(m2_pts)), pc.sub[2])), ]
+		}else{
+			m1_pc_sub <- m1_pts
+			m2_pc_sub <- m2_pts
+		}
+
+		# Find centroids		
+		m1_centroid <- colMeans(m1_pc_sub)
+		m2_centroid <- colMeans(m2_pc_sub)
+
+		# Align by PC axes
+		# Perform PCA on vertices
+		m1_vectors <- prAxes(m1_pc_sub)$vectors
+		m2_vectors <- prAxes(m2_pc_sub)$vectors
+
+		# Set all possible vector orientations
+		vec_signs <- list(c(1,1,1), c(-1,1,1), c(1,-1,1), c(1,1,-1), c(-1,-1,1), c(1,-1,-1), c(-1,-1,-1), c(-1,1,-1))
+
+		# Create points from PC for alignment
+		m1_pr_pts <- rbind(m1_centroid, m1_vectors + matrix(m1_centroid, 3, 3, byrow=TRUE))
+		rownames(m1_pr_pts) <- c('centroid', 'v1', 'v2', 'v3')
+
+		# Try each combination
+		pc_errors <- c()
+		tmats <- list()
+		n <- 1
+		for(i in 1:length(vec_signs)){
+
+			# Create points from PC for alignment
+			m2_pr_pts <- rbind(m2_centroid, vec_signs[[i]]*m2_vectors + matrix(m2_centroid, 3, 3, byrow=TRUE))
+			rownames(m2_pr_pts) <- c('centroid', 'v1', 'v2', 'v3')
+
+			# Find transformation of 2nd to 1st mesh based on PR axes
+			tmat_pr <- bestAlign(m1_pr_pts, m2_pr_pts)$tmat
+		
+			for(angle in c(0, pi/2)){
+
+				# Try rotating about 3rd axis
+				# As the most minor axis its orientation is noisier and therefore may not be 
+				#  homologously oriented between two similar meshes. This tries rotations of 
+				#  90 degrees to see if it produces a lower error
+				if(angle != 0){
+					tmat_1 <- tmat_2 <- tmat_3 <- diag(4)
+					tmat_1[1:3, 4] <- colMeans(m2_pr_pts)
+					tmat_2[1:3, 1:3] <- tMatrixEP_ma(vec_signs[[i]][3]*m2_vectors[3,], angle)
+					tmat_3[1:3, 4] <- -colMeans(m2_pr_pts)
+					tmat_pr_a <- tmat_pr %*% tmat_1 %*% tmat_2 %*% tmat_3
+				}else{
+					tmat_pr_a <- tmat_pr
+				}
+		
+				# Apply transformation to m2_pc_sub
+				m2_pc_sub_pr <- applyTransform(to=m2_pc_sub, tmat=tmat_pr_a)
+				
+				# Save tmat
+				tmats[[n]] <- tmat_pr_a
+
+				# Find error
+				pc_errors <- c(pc_errors, min_pt_cloud_dist(m1_pc_sub, m2_pc_sub_pr))
+				
+				# Advance count
+				n <- n + 1
+			}
+		}
+		
+		# Save error
+		error <- min(pc_errors)
+
+		# Print progress
+		if(print.progress) cat(paste0('\tInitial alignment error per point: ', round(error/nrow(m1_pc_sub), 3), '\n'))
+		
+		# Set final transformation as that which gives lowest error
+		tmat_pc <- tmats[[which.min(pc_errors)]]
+
+		# Use point clouds to find best overlap
+		if(pt.align){
+
+			# Sub-sample the original vertices
+			if(pt.sub[1] > -1){
+				m1_sub <- m1_pts[seq(1, nrow(m1_pts), length=min(nrow(m1_pts), round(pt.sub[1]*nrow(m1_pts)), pt.sub[2])), ]
+				m2_sub <- m2_pts[seq(1, nrow(m2_pts), length=min(nrow(m2_pts), round(pt.sub[1]*nrow(m2_pts)), pt.sub[2])), ]
+			}else{
+				m1_sub <- m1_pts
+				m2_sub <- m2_pts
+			}
+			
+			# Print number of points used
+			if(print.progress) cat(paste0('\tUsing ', nrow(m1_sub), ' points (of ', nrow(m1_pts), ') for point cloud alignment\n'))
+			
+			# Transform m2 using tmat_pc
+			# ***
+			m2_sub_pr <- applyTransform(to=m2_sub, tmat=tmat_pc)
+
+			# Set initial parameters
+			p_start <- c(0,0,0,0,0,0)
+
+			# Set scale of translation bound
+			t_bound <- max(apply(apply(m1_sub, 2, 'range'), 2, 'diff'))*0.2
+			
+			# Get centroid
+			m2_sub_pr_centroid <- colMeans(m2_sub_pr)
+
+			# Find initial error
+			#rotate_error_init <- align_pt_cloud_error(p=p_start, m1=m1_sub, m2=m2_sub_pr, center=m2_sub_pr_centroid)
+			#print(rotate_error_init)
+			
+			# Optimize points by rotating 3 axes about real marker
+			rotation_fit <- tryCatch(
+				expr={
+					nlminb(start=p_start, objective=align_pt_cloud_error, m1=m1_sub, m2=m2_sub_pr,
+					center=m2_sub_pr_centroid,
+					lower=c(p_start[1:3]-t_bound, rep(-2*pi, 3)), upper=c(p_start[1:3]+t_bound, rep(2*pi, 3)))
+				},
+				error=function(cond) {print(cond);return(NULL)},
+				warning=function(cond) {print(cond);return(NULL)}
+			)
+
+			# Update error
+			error <- rotation_fit$objective
+
+			# Print progress
+			if(print.progress) cat(paste0('\tError after point cloud optimization per point: ', round(error/nrow(m1_sub), 3), '\n'))
+			
+			# Get transformation
+			tmat_1 <- tmat_2 <- tmat_3 <- diag(4)
+			tmat_1[1:3, 4] <- m2_sub_pr_centroid+rotation_fit$par[1:3]
+			tmat_2[1:3, 1:3] <- rotationMatrixZYX_ma(rotation_fit$par[4:6])
+			tmat_3[1:3, 4] <- -m2_sub_pr_centroid
+			tmat <- tmat_1 %*% tmat_2 %*% tmat_3 %*% tmat_pc
+
+		}else{
+			tmat <- tmat_pc
+		}
+
+		# If m2 points were reflected add reflection before other transformations
+		if(reflect){
+			reflect_tmat <- -diag(4)
+			reflect_tmat[4,4] <- 1
+			tmat <- tmat %*% reflect_tmat
+		}
+
+		rlist <- list(
+			'error'=error,
+			'tmat'=tmat
+		)
+		return(rlist)
+	}
 
 	# If m1 is 3-d array
 	if(length(dim(m1)) == 3 && length(dim(m2)) == 2){
@@ -18,7 +212,7 @@ bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
 		tmat <- array(NA, dim=c(4,4,n_iter))
 
 		# Not finished
-		return(NULL)
+		stop('Not finished writing')
 	}
 
 	if(length(dim(m2)) == 3){
@@ -29,14 +223,29 @@ bestAlign <- function(m1, m2, m3 = NULL, sign = NULL){
 		# Get common points
 		common_names <- rownames(m1)[rownames(m1) %in% dimnames(m2)[[1]]]
 
+		#
+		rlist <- list(
+			mat=array(NA, dim=dim(m2), dimnames=dimnames(m2)),
+			pos.errors=array(NA, dim=c(dim(m1[common_names, ]), n_iter), dimnames=list(common_names, NULL, NULL)),
+			dist.errors=array(NA, dim=c(dim(m1[common_names, ])[1], 1, n_iter), dimnames=list(common_names, NULL, NULL)),
+			tmat=array(NA, dim=c(4,4,n_iter))
+		)
+
 		# Each iteration
 		for(iter in 1:n_iter){
 
 			# Find translation and rotation to align m2 to m1
-			m2[, , iter] <- bestAlign(m1[common_names, ], m2[common_names, , iter], m2[, , iter])$mc
+			#m2[, , iter] <- bestAlign(m1[common_names, ], m2[common_names, , iter], m2[, , iter])$mc
+			best_align <- bestAlign(m1[common_names, ], m2[common_names, , iter], m2[, , iter])
+			
+			# Save results
+			rlist$mat[,,iter] <- best_align$mc
+			rlist$pos.errors[,,iter] <- best_align$pos.errors
+			rlist$dist.errors[,,iter] <- best_align$dist.errors
+			rlist$tmat[,,iter] <- best_align$tmat
 		}
 
-		return(m2)
+		return(rlist)
 	}
 	
 	# IF INPUTTING A MATRIX WITH ALL ZEROS IN ONE DIMENSION, MAKE IT M2, NOT M1
