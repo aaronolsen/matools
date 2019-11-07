@@ -20,10 +20,10 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 	# Set matrix coordinates
 	ct_mat <- xyz.mat
 
-	# Remove CT coordinates that are NA
+	# Remove motion coordinates that are NA
 	ct_mat <- ct_mat[!is.na(ct_mat[, 1]), ]
 	
-	# Set CT markers
+	# Set motion markers
 	ct_markers <- rownames(ct_mat)
 
 	# Parse unify specifications and return in unification order
@@ -112,7 +112,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 			# Get point markers
 			if(!is.null(ulist[[body_name]][['point']])){
 
-				# Find point-to markers in both motion and CT
+				# Find point-to markers in both motion and motion
 				point_markers <- unlist(ulist[[body_name]][['point']])
 				point_markers <- point_markers[point_markers %in% mo_markers]
 
@@ -150,9 +150,9 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 			if(length(align_markers) >= 2){
 
 				# Print progress
-				if(print_progress) cat(paste0('\t\tAlign CT markers using ', length(align_markers), ' motion markers: "', paste0(align_markers, collapse='", "'), '"\n'))
+				if(print_progress) cat(paste0('\t\tAlign motion markers using ', length(align_markers), ' motion markers: "', paste0(align_markers, collapse='", "'), '"\n'))
 
-				# Transform CT markers to correspond with motion markers
+				# Transform motion markers to correspond with motion markers
 				align <- bestAlign(xr_arr_n[align_markers,, iter], ct_mat[unique(c(align_markers, point_markers, markers_in_plane)),], sign=1)
 			}
 
@@ -170,7 +170,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 				# Single alignment marker
 				if(length(align_markers) == 1){
 
-					# Create transformed CT mat
+					# Create transformed motion mat
 					ct_mat_t <- ct_mat[c(align_markers, point_markers, markers_in_plane), , drop=FALSE]
 
 					# Set real marker as center
@@ -187,7 +187,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 					
 						# Print progress
 						if(print_progress){
-							cat(paste0('\t\tAlign CT markers using 1 motion marker: "', align_markers, '"\n'))
+							cat(paste0('\t\tAlign motion markers using 1 motion marker: "', align_markers, '"\n'))
 							if(length(point_markers) > 0) cat(paste0('\t\tOptimize rotation using point-to markers: "', paste0(point_markers, collapse='", "'), '"\n'))
 							cat(paste0('\t\tPlacing marker(s) "', paste0(markers_in_plane, collapse='", "'), '" in plane...\n\t\t\tdefined by markers: "', paste0(plane_markers, collapse='", "'), '"\n'))
 						}
@@ -212,7 +212,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 
 						# Print progress
 						if(print_progress){
-							cat(paste0('\t\tAlign CT markers using 1 motion marker: "', align_markers, '"\n'))
+							cat(paste0('\t\tAlign motion markers using 1 motion marker: "', align_markers, '"\n'))
 							cat(paste0('\t\tOptimize rotation using point markers: "', paste0(point_markers, collapse='", "'), '"\n'))
 						}
 
@@ -266,7 +266,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 						center <- fit_line$p1
 					}
 
-					# Create transformed CT mat
+					# Create transformed motion mat
 					ct_mat_t <- align$mat
 
 					# Find initial error
@@ -429,7 +429,7 @@ unifyMotion <- function(motion, xyz.mat, unify.spec, regexp = FALSE,
 
 	#
 	if(!is.null(plot.diag)){
-
+	
 		# If plot filename doesn't end in pdf, add
 		if(!grepl('[.]pdf$', plot.diag, ignore.case=TRUE)) plot.diag <- paste0(plot.diag, '.pdf')
 
