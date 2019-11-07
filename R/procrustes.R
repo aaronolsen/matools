@@ -1,5 +1,13 @@
 procrustes <- function(x, scale=TRUE, rotate=TRUE, scale.to.mean.Csize=FALSE){
 
+	# Exclude cases where three or more landmarks are NA
+	x_idx_use <- which(colSums(!is.na(x[,1,])) >= 3)
+	
+	if(!length(x_idx_use)) stop('There are no sets in "x" for which at least three landmarks are not NA')
+
+	# Limit to certain indices
+	x <- x[,,x_idx_use]
+	
 	k <- dim(x)[1]
 	m <- dim(x)[2]
 	n <- dim(x)[3]
@@ -50,6 +58,18 @@ procrustes <- function(x, scale=TRUE, rotate=TRUE, scale.to.mean.Csize=FALSE){
 		mean_Csize <- mean(Csize, na.rm=TRUE)
 		for(i in 1:n) x[,, i] <- x[,, i] * mean_Csize
 	}
+	
+	# Get consensus
+	consensus <- apply(x, 2, 'rowMeans', na.rm=TRUE)
+	
+	# Get errors between consensus and each iteration
+	dist_xc <- sqrt(apply((x - array(consensus, dim=dim(x)))^2, 3, 'rowSums'))
+	
+	# Get average distances
+	errors.max <- apply(dist_xc, 1, 'max', na.rm=TRUE)
+	errors.landmark <- rowMeans(dist_xc, na.rm=TRUE)
+	error <- mean(dist_xc, na.rm=TRUE)
 
-	return(list('coords'=x, 'Csize'=Csize, 'common'=all_common, 'consensus'=apply(x, 2, 'rowMeans', na.rm=TRUE)))
+	return(list('coords'=x, 'Csize'=Csize, 'common'=all_common, 'consensus'=consensus, 
+		'errors.mean'=errors.landmark, 'errors.max'=errors.max, 'errors.all'=dist_xc, 'error'=error))
 }
