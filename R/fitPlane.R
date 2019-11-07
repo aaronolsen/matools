@@ -1,4 +1,4 @@
-fitPlane <- function(mat, scale = 1){
+fitPlane <- function(mat, scale = c(1,1)){
 	
 	# Center by centroid
 	centroid.align <- mat - matrix(colMeans(mat), nrow(mat), ncol(mat), byrow=TRUE)
