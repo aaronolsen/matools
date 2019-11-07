@@ -1,3 +1,5 @@
+useDynLib(matools, .registration = TRUE)
+
 import(grDevices)
 import(graphics)
 import(stats)
