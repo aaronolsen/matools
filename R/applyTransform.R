@@ -132,9 +132,17 @@ applyTransform <- function(to, tmat, assoc = NULL, single.as = 'matrix', drop = 
 		}else if(length(dim(pts)) == 4){
 			
 			# Transform transformations
-			for(body in 1:dim(pts)[3]){
-				for(iter in 1:dim(pts)[4]){
-					pts[, , body, iter] <- tmat[, , iter] %*% pts[, , body, iter]
+			if(dim(pts)[4] == dim(tmat)[3]){
+				for(body in 1:dim(pts)[3]){
+					for(iter in 1:dim(pts)[4]){
+						pts[, , body, iter] <- tmat[, , iter] %*% pts[, , body, iter]
+					}
+				}
+			}else if(dim(pts)[3] == dim(tmat)[3]){
+				for(body in 1:dim(pts)[3]){
+					for(iter in 1:dim(pts)[4]){
+						pts[, , body, iter] <- tmat[, , body] %*% pts[, , body, iter]
+					}
 				}
 			}
 
@@ -183,25 +191,40 @@ applyTransform <- function(to, tmat, assoc = NULL, single.as = 'matrix', drop = 
 			return(parr)
 
 		}else if(length(dim(pts)) == 3){
-
-			parr <- pts
-
-			for(body in 1:dim(tmat)[3]){
-
-				# Get body name
-				body_name <- dimnames(tmat)[[3]][body]
-
-				# Find points associated with body
-				body_assoc <- which(assoc == body_name)
-	
-				# Skip if no points associated with body
-				if(length(body_assoc) == 0) next
-
-				# Transform
-				parr[body_assoc, , ] <- applyTransform(parr[body_assoc, , ], tmat[, , body, ], drop=drop)
-			}
 			
-			return(parr)
+			if(dim(pts)[2] == 3){
+
+				parr <- pts
+
+				for(body in 1:dim(tmat)[3]){
+
+					# Get body name
+					body_name <- dimnames(tmat)[[3]][body]
+
+					# Find points associated with body
+					body_assoc <- which(assoc == body_name)
+	
+					# Skip if no points associated with body
+					if(length(body_assoc) == 0) next
+
+					# Transform
+					parr[body_assoc, , ] <- applyTransform(parr[body_assoc, , ], tmat[, , body, ], drop=drop)
+				}
+			
+				return(parr)
+
+			}else if(dim(pts)[2] == 4){
+			
+				return_tmat <- array(NA, dim=dim(tmat), dimnames=dimnames(tmat))
+				
+				for(body in 1:dim(tmat)[3]){
+					for(iter in 1:dim(tmat)[4]){
+						return_tmat[, , body, iter] <- tmat[, , body, iter] %*% pts[, , body]
+					}
+				}
+				
+				return(return_tmat)
+			}
 		}
 
 	}
