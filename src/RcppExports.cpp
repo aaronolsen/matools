@@ -5,24 +5,38 @@
 
 using namespace Rcpp;
 
-// apply_transform
-Rcpp::List read_obj_str(std::vector< std::string > string);
-RcppExport SEXP _svgViewR_read_obj_str(SEXP stringSEXP) {
+// min_pt_cloud_dist
+double min_pt_cloud_dist(Rcpp::NumericMatrix mat1, Rcpp::NumericMatrix mat2);
+RcppExport SEXP _matools_min_pt_cloud_dist(SEXP mat1SEXP, SEXP mat2SEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::vector< std::string > >::type string(stringSEXP);
-    rcpp_result_gen = Rcpp::wrap(read_obj_str(string));
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type mat1(mat1SEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type mat2(mat2SEXP);
+    rcpp_result_gen = Rcpp::wrap(min_pt_cloud_dist(mat1, mat2));
+    return rcpp_result_gen;
+END_RCPP
+}
+// transform_pts
+Rcpp::NumericMatrix transform_pts(Rcpp::NumericMatrix pts, Rcpp::NumericMatrix tmat);
+RcppExport SEXP _matools_transform_pts(SEXP ptsSEXP, SEXP tmatSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type pts(ptsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type tmat(tmatSEXP);
+    rcpp_result_gen = Rcpp::wrap(transform_pts(pts, tmat));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_svgViewR_read_obj_str", (DL_FUNC) &_svgViewR_read_obj_str, 1},
+    {"_matools_min_pt_cloud_dist", (DL_FUNC) &_matools_min_pt_cloud_dist, 2},
+    {"_matools_transform_pts", (DL_FUNC) &_matools_transform_pts, 2},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_svgViewR(DllInfo *dll) {
+RcppExport void R_init_matools(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }
